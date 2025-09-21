@@ -20,6 +20,7 @@ INSTALLED_APPS.append("helpdesk")
 INSTALLED_APPS.append("offboarding")
 INSTALLED_APPS.append("horilla_backup")
 INSTALLED_APPS.append("project")
+INSTALLED_APPS.append("handbook")  # Add our new handbook app
 if settings.env("AWS_ACCESS_KEY_ID", default=None) and "storages" not in INSTALLED_APPS:
     INSTALLED_APPS.append("storages")
 
@@ -46,7 +47,7 @@ if SETTINGS_EMAIL_BACKEND:
 
 SIDEBARS = [
     "recruitment",
-    "onboarding",
+    "onboarding", 
     "employee",
     "attendance",
     "leave",
@@ -55,6 +56,7 @@ SIDEBARS = [
     "offboarding",
     "asset",
     "helpdesk",
+    "handbook",  # Add handbook to sidebar
     "project",
 ]
 
