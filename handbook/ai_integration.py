@@ -14,7 +14,7 @@ import requests
 from .models import HandbookDocument
 
 # Groq API Configuration
-GROQ_API_KEY = getattr(settings, 'GROQ_API_KEY', 'REMOVED_GROQ_API_KEY')
+GROQ_API_KEY = getattr(settings, 'GROQ_API_KEY', '')
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
