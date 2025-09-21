@@ -83,7 +83,7 @@ pip install PyPDF2    # Already completed
 Add to your `horilla/settings.py`:
 ```python
 # Handbook AI Configuration
-GROQ_API_KEY=REDACTED
+GROQ_API_KEY = ''
 HANDBOOK_AI_BACKEND = 'groq'  # Options: 'groq', 'openai', 'simple'  
 HANDBOOK_AI_MAX_TOKENS = 700
 HANDBOOK_AI_MAX_CONTEXT = 15000
@@ -91,7 +91,7 @@ HANDBOOK_AI_MAX_CONTEXT = 15000
 
 Or add to `.env` file:
 ```env
-GROQ_API_KEY=REDACTED
+GROQ_API_KEY=
 HANDBOOK_AI_BACKEND=groq
 ```
 

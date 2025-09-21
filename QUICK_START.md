@@ -5,7 +5,7 @@
 ### 1. **AI Configuration** 
 The Groq API key is already configured in the code:
 ```
-API Key: REMOVED_GROQ_API_KEY
+API Key: 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
 Model: meta-llama/llama-4-scout-17b-16e-instruct
 ```
 
