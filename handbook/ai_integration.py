@@ -36,35 +36,54 @@ def generate_groq_response(user_message: str, max_tokens: int = 700) -> Tuple[st
         user_message_lower = user_message.lower()
         keywords = extract_keywords(user_message_lower)
         
+        # Score all paragraphs from all documents
+        all_paragraphs = []
         for doc in documents:
             if doc.processed_content:
-                content_lower = doc.processed_content.lower()
-                # Enhanced relevance check
-                relevance_score = calculate_relevance(keywords, content_lower)
-                
-                if relevance_score > 0.1:  # Threshold for relevance
-                    relevant_docs.append(doc)
-                    # Extract most relevant sections
-                    relevant_sections = extract_relevant_sections(
-                        doc.processed_content, keywords, max_sections=3
-                    )
-                    context += f"\n\nFrom {doc.title}:\n{relevant_sections}"
+                paragraphs = [p.strip() for p in doc.processed_content.split('\n\n') if p.strip()]
+                for p in paragraphs:
+                    score = calculate_relevance(keywords, p)
+                    if score > 0.01: # Stricter threshold for initial filtering
+                        all_paragraphs.append({'score': score, 'text': p, 'doc_title': doc.title})
+
+        # Sort all paragraphs by relevance
+        all_paragraphs.sort(key=lambda x: x['score'], reverse=True)
+
+        # Build context from the most relevant paragraphs, avoiding redundancy
+        added_paragraphs = set()
+        final_paragraphs = []
+        doc_titles = set()
+
+        for p_data in all_paragraphs:
+            if len(final_paragraphs) < 5: # Limit to top 5 paragraphs overall
+                # Simple check to avoid adding very similar paragraphs
+                if p_data['text'][:100] not in added_paragraphs:
+                    final_paragraphs.append(f"From {p_data['doc_title']}:\n{p_data['text']}")
+                    added_paragraphs.add(p_data['text'][:100])
+                    doc_titles.add(p_data['doc_title'])
         
+        context = "\n\n".join(final_paragraphs)
+        relevant_docs = list(doc_titles)
+
         # Limit context size to avoid API limits
         max_context_chars = 15000
         if len(context) > max_context_chars:
             context = context[:max_context_chars] + "\n...[content truncated]..."
         
+        if not context:
+             return "I couldn't find any relevant information in the handbook for your question. Please try rephrasing or contact HR.", []
+
         # Build the AI prompt
-        system_prompt = """You are a helpful HR assistant for employees. Answer questions based ONLY on the employee handbook content provided. 
+        system_prompt = """You are a helpful HR assistant for employees. Answer questions based ONLY on the employee handbook content provided.
 
 Guidelines:
-- Provide accurate, helpful answers based on company policies
-- If information isn't in the handbook, say so clearly
-- Be concise but thorough
-- Use a professional but friendly tone
-- Include relevant policy details and procedures
-- For complex questions, break down the answer into clear steps"""
+- Provide accurate, helpful answers based on company policies.
+- If the information isn't in the handbook, say so clearly.
+- Be concise but thorough.
+- Use a professional but friendly tone.
+- Quote the relevant policy details and procedures directly when possible.
+- For complex questions, break down the answer into clear steps.
+- Do not invent information. If the context does not contain the answer, state that the information is not available in the provided content."""
 
         user_prompt = f"""Employee Handbook Content:
 {context}
@@ -99,10 +118,10 @@ Please provide a helpful answer based on the handbook information above. If the 
             
             # Add source attribution
             if relevant_docs:
-                source_list = ", ".join([doc.title for doc in relevant_docs[:3]])
+                source_list = ", ".join(relevant_docs[:3])
                 ai_response += f"\n\n?? Sources: {source_list}"
             
-            return ai_response, relevant_docs
+            return ai_response, [doc for doc in documents if doc.title in relevant_docs]
         else:
             return "I apologize, but I couldn't generate a response. Please try rephrasing your question.", []
         
@@ -143,50 +162,77 @@ def calculate_relevance(keywords: List[str], content: str) -> float:
     """
     Calculate relevance score between keywords and content
     """
-    if not keywords:
+    if not keywords or not content:
         return 0.0
     
     content_lower = content.lower()
     total_score = 0
     
-    for keyword in keywords:
-        # Count occurrences of the keyword
-        count = content_lower.count(keyword)
-        if count > 0:
-            # Weight longer keywords more heavily
-            weight = len(keyword) / 10.0
-            total_score += count * weight
+    # Use a set for faster keyword checking
+    keyword_set = set(keywords)
     
-    # Normalize by content length and keyword count
-    max_possible_score = len(keywords) * len(content) / 1000
-    return min(total_score / max_possible_score if max_possible_score > 0 else 0, 1.0)
+    # Find unique words in content to avoid over-counting in very long text
+    content_words = set(re.findall(r'\b\w+\b', content_lower))
+    
+    matched_keywords = keyword_set.intersection(content_words)
+    
+    if not matched_keywords:
+        return 0.0
+
+    # Score based on the presence and weight of keywords
+    for keyword in matched_keywords:
+        # Weight longer keywords more heavily
+        total_score += len(keyword)
+
+    # Normalize score based on the number of unique keywords found vs total keywords
+    # This gives a density score.
+    relevance = total_score * (len(matched_keywords) / len(keywords))
+    
+    # Further boost score for paragraphs that contain a high density of keywords
+    # This helps shorter, direct paragraphs to stand out.
+    content_len = len(content_words)
+    if content_len > 0:
+        density = len(matched_keywords) / content_len
+        if density > 0.1: # Boost if keyword density is high
+            relevance *= 1.5
+
+    # Normalize to a 0-1 range (approximate)
+    # A perfect match of 10 keywords with average length 5 would be 50 * 1 = 50.
+    # A very high relevance score could be around 100. Let's use that as a ceiling.
+    return min(relevance / 100.0, 1.0)
 
 
-def extract_relevant_sections(content: str, keywords: List[str], max_sections: int = 3) -> str:
+def extract_relevant_sections(content: str, keywords: List[str], max_sections: int = 1) -> str:
     """
     Extract the most relevant sections from content based on keywords
     """
     # Split content into paragraphs
     paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
     
+    if not paragraphs:
+        return ""
+
     # Score each paragraph
     paragraph_scores = []
     for i, paragraph in enumerate(paragraphs):
         score = calculate_relevance(keywords, paragraph)
-        paragraph_scores.append((score, i, paragraph))
+        if score > 0:
+            paragraph_scores.append((score, i, paragraph))
     
-    # Sort by relevance score and take top sections
+    # Sort by relevance score and take top section
     paragraph_scores.sort(key=lambda x: x[0], reverse=True)
     
-    selected_sections = []
-    for score, _, paragraph in paragraph_scores[:max_sections]:
-        if score > 0:
-            # Limit paragraph length
-            if len(paragraph) > 500:
-                paragraph = paragraph[:500] + "..."
-            selected_sections.append(paragraph)
+    if not paragraph_scores:
+        return ""
+
+    # Return the single most relevant paragraph
+    top_paragraph = paragraph_scores[0][2]
     
-    return "\n\n".join(selected_sections)
+    # Limit paragraph length
+    if len(top_paragraph) > 500:
+        top_paragraph = top_paragraph[:500] + "..."
+            
+    return top_paragraph
 
 
 def search_handbook_semantic(query: str, limit: int = 5) -> List[dict]:
@@ -200,7 +246,7 @@ def search_handbook_semantic(query: str, limit: int = 5) -> List[dict]:
     for doc in documents:
         if doc.processed_content:
             relevance = calculate_relevance(keywords, doc.processed_content.lower())
-            if relevance > 0:
+            if relevance > 0.01: # Adjusted threshold
                 relevant_excerpt = extract_relevant_sections(
                     doc.processed_content, keywords, max_sections=1
                 )
@@ -240,21 +286,37 @@ def generate_openai_response(user_message: str, max_tokens: int = 500) -> Tuple[
         user_message_lower = user_message.lower()
         keywords = extract_keywords(user_message_lower)
         
+        # Score all paragraphs from all documents
+        all_paragraphs = []
         for doc in documents:
             if doc.processed_content:
-                relevance = calculate_relevance(keywords, doc.processed_content.lower())
-                if relevance > 0.1:
-                    relevant_docs.append(doc)
-                    relevant_sections = extract_relevant_sections(
-                        doc.processed_content, keywords, max_sections=2
-                    )
-                    context += f"\n\nFrom {doc.title}:\n{relevant_sections}"
+                paragraphs = [p.strip() for p in doc.processed_content.split('\n\n') if p.strip()]
+                for p in paragraphs:
+                    score = calculate_relevance(keywords, p)
+                    if score > 0.01:
+                        all_paragraphs.append({'score': score, 'text': p, 'doc_title': doc.title})
+
+        # Sort all paragraphs by relevance
+        all_paragraphs.sort(key=lambda x: x['score'], reverse=True)
+
+        # Build context from the most relevant paragraphs
+        final_paragraphs = []
+        doc_titles = set()
+        for p_data in all_paragraphs[:5]: # Top 5 paragraphs
+            final_paragraphs.append(f"From {p_data['doc_title']}:\n{p_data['text']}")
+            doc_titles.add(p_data['doc_title'])
         
+        context = "\n\n".join(final_paragraphs)
+        relevant_docs = list(doc_titles)
+
         # Limit context size
         if len(context) > 12000:
             context = context[:12000] + "\n...[content truncated]..."
         
-        system_prompt = """You are a helpful HR assistant. Answer employee questions based only on the handbook content provided. Be accurate, concise, and professional."""
+        if not context:
+            return "I couldn't find relevant information in the handbook.", []
+
+        system_prompt = """You are a helpful HR assistant. Answer employee questions based only on the handbook content provided. Be accurate, concise, and professional. Quote relevant text where possible."""
         
         user_prompt = f"""Employee Handbook Context:
 {context}
@@ -276,10 +338,10 @@ Provide a helpful answer based on the handbook information."""
         bot_response = response.choices[0].message.content.strip()
         
         if relevant_docs:
-            source_list = ", ".join([doc.title for doc in relevant_docs[:3]])
+            source_list = ", ".join(relevant_docs[:3])
             bot_response += f"\n\n?? Sources: {source_list}"
         
-        return bot_response, relevant_docs
+        return bot_response, [doc for doc in documents if doc.title in relevant_docs]
         
     except ImportError:
         return "OpenAI integration not available. Please install the openai package.", []
