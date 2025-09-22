@@ -14,7 +14,7 @@ import requests
 from .models import HandbookDocument
 
 # Groq API Configuration
-GROQ_API_KEY = getattr(settings, 'GROQ_API_KEY', 'replace with key')
+GROQ_API_KEY = getattr(settings, 'GROQ_API_KEY', None) or os.getenv('GROQ_API_KEY')
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
@@ -23,7 +23,7 @@ def generate_groq_response(user_message: str, max_tokens: int = 700) -> Tuple[st
     Generate response using Groq AI with handbook context
     """
     try:
-        if not GROQ_API_KEY or GROQ_API_KEY == 'your_groq_api_key_here':
+        if not GROQ_API_KEY or GROQ_API_KEY in ['replace with key', 'your_groq_api_key_here']:
             return "Groq API key not configured. Please set GROQ_API_KEY in settings.", []
         
         # Get relevant documents
