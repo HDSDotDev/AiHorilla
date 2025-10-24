@@ -1,0 +1,66 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">
+                {% trans "PhilHealth Contribution Table" %}
+            </h1>
+        </div>
+    </section>
+
+    <section class="oh-wrapper">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Philippine Health Insurance (PhilHealth) Contributions" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current PhilHealth premium rates as per RA 11223" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Monthly Basic Salary" %}</th>
+                                <th class="text-end">{% trans "Premium Rate" %}</th>
+                                <th class="text-end">{% trans "Monthly Premium" %}</th>
+                                <th class="text-end">{% trans "Employee Share" %}</th>
+                                <th class="text-end">{% trans "Employer Share" %}</th>
+                                <th>{% trans "Effective Date" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in contributions %}
+                            <tr>
+                                <td>
+                                    {% if item.max_salary %}
+                                        ₱{{ item.min_salary|floatformat:2 }} - ₱{{ item.max_salary|floatformat:2 }}
+                                    {% else %}
+                                        ₱{{ item.min_salary|floatformat:2 }} and above
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ item.premium_rate|floatformat:2 }}%</td>
+                                <td class="text-end">₱{{ item.monthly_premium|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employee_share|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employer_share|floatformat:2 }}</td>
+                                <td>{{ item.effective_date|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    {% trans "No PhilHealth contribution data available" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

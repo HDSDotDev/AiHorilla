@@ -86,6 +86,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "payroll.middleware.PayrollCountryMiddleware",  # Philippines payroll support
 ]
 
 ROOT_URLCONF = "horilla.urls"
@@ -103,6 +104,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "payroll.context_processors.active_payroll_country",  # Philippines payroll support
             ],
         },
     },

@@ -195,12 +195,14 @@
                     </td>
                 </tr>
             {% endfor %}
+            {% if federal_tax > 0 %}
             <tr class="oh-payslip__table-tr">
                 <td class="oh-payslip__table-td">{% trans "Federal Tax" %}</td>
                 <td class="oh-payslip__table-td">
                     {{federal_tax|floatformat:2|currency_symbol_position}}
                 </td>
             </tr>
+            {% endif %}
             {% for deduction in tax_deductions %}
                 <tr class="oh-payslip__table-tr">
                     <td class="oh-payslip__table-td">{{deduction.title}}</td>

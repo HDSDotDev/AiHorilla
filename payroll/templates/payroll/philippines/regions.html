@@ -1,0 +1,63 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">
+                {% trans "Regional Minimum Wage" %}
+            </h1>
+        </div>
+    </section>
+
+    <section class="oh-wrapper">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Minimum Wage Rates by Region" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current minimum wage rates across all Philippine regions" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Region Code" %}</th>
+                                <th>{% trans "Region Name" %}</th>
+                                <th class="text-end">{% trans "Daily Minimum Wage" %}</th>
+                                <th class="text-end">{% trans "Monthly Minimum Wage" %}</th>
+                                <th>{% trans "Effective Date" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for region in regions %}
+                            <tr>
+                                <td><span class="badge bg-primary">{{ region.region_code }}</span></td>
+                                <td><strong>{{ region.region_name }}</strong></td>
+                                <td class="text-end">₱{{ region.daily_minimum_wage|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ region.monthly_minimum_wage|floatformat:2 }}</td>
+                                <td>{{ region.effective_date|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    {% trans "No regional wage data available" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>{% trans "Note:" %}</strong>
+                    {% trans "Minimum wage rates are set by Regional Tripartite Wages and Productivity Boards (RTWPB)." %}
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

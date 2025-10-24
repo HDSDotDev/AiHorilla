@@ -14,7 +14,6 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-import payroll.models.models
 from base.forms import Form, ModelForm
 from base.methods import reload_queryset
 from employee.filters import EmployeeFilter
@@ -25,7 +24,7 @@ from horilla_widgets.forms import HorillaForm, default_select_option_template
 from horilla_widgets.widgets.horilla_multi_select_field import HorillaMultiSelectField
 from horilla_widgets.widgets.select_widgets import HorillaMultiSelectWidget
 from notifications.signals import notify
-from payroll.models import tax_models as models
+from payroll.models import tax_models
 from payroll.models.models import (
     Allowance,
     Contract,
@@ -56,7 +55,7 @@ class AllowanceForm(ModelForm):
         Meta class for additional options
         """
 
-        model = payroll.models.models.Allowance
+        model = Allowance
         fields = "__all__"
         exclude = ["is_active"]
         widgets = {
@@ -196,7 +195,7 @@ class DeductionForm(ModelForm):
         Meta class for additional options
         """
 
-        model = payroll.models.models.Deduction
+        model = Deduction
         fields = "__all__"
         exclude = ["is_active"]
         widgets = {
@@ -379,7 +378,7 @@ class PayslipForm(ModelForm):
         Meta class for additional options
         """
 
-        model = payroll.models.models.Payslip
+        model = Payslip
         fields = [
             "employee_id",
             "start_date",
@@ -488,7 +487,7 @@ class PayrollSettingsForm(ModelForm):
         Meta class for additional options
         """
 
-        model = models.PayrollSettings
+        model = tax_models.PayrollSettings
         fields = "__all__"
 
 

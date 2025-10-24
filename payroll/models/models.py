@@ -1072,7 +1072,19 @@ class Deduction(HorillaModel):
         ("max_amount", _("Provide max amount")),
     ]
 
+    country_choice = [
+        ("USA", _("United States")),
+        ("PH", _("Philippines")),
+        ("GLOBAL", _("All Countries")),
+    ]
+
     title = models.CharField(max_length=255, help_text=_("Title of the deduction"))
+    country = models.CharField(
+        max_length=10,
+        choices=country_choice,
+        default="GLOBAL",
+        help_text=_("Country where this deduction applies. Select 'All Countries' for universal deductions.")
+    )
     one_time_date = models.DateField(
         null=True,
         blank=True,

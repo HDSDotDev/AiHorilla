@@ -1,0 +1,66 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">
+                {% trans "Pag-IBIG Contribution Table" %}
+            </h1>
+        </div>
+    </section>
+
+    <section class="oh-wrapper">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Home Development Mutual Fund (Pag-IBIG) Contributions" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current Pag-IBIG contribution rates as per RA 9679" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Monthly Compensation" %}</th>
+                                <th class="text-end">{% trans "Employee Rate" %}</th>
+                                <th class="text-end">{% trans "Employer Rate" %}</th>
+                                <th class="text-end">{% trans "Employee Contribution" %}</th>
+                                <th class="text-end">{% trans "Employer Contribution" %}</th>
+                                <th>{% trans "Effective Date" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in contributions %}
+                            <tr>
+                                <td>
+                                    {% if item.max_salary %}
+                                        ₱{{ item.min_salary|floatformat:2 }} - ₱{{ item.max_salary|floatformat:2 }}
+                                    {% else %}
+                                        ₱{{ item.min_salary|floatformat:2 }} and above
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ item.employee_rate|floatformat:2 }}%</td>
+                                <td class="text-end">{{ item.employer_rate|floatformat:2 }}%</td>
+                                <td class="text-end">₱{{ item.employee_contribution|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employer_contribution|floatformat:2 }}</td>
+                                <td>{{ item.effective_date|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    {% trans "No Pag-IBIG contribution data available" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

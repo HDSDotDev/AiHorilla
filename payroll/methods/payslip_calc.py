@@ -24,6 +24,19 @@ from payroll.models.models import (
 )
 
 
+def get_active_country():
+    """
+    Get the currently active country from PayrollCountryConfig.
+    Returns 'USA' if no country is set (default).
+    """
+    try:
+        from payroll.models.country_models import PayrollCountryConfig
+        active_config = PayrollCountryConfig.objects.filter(is_active=True).first()
+        return active_config.country if active_config else 'USA'
+    except Exception:
+        return 'USA'
+
+
 def return_none(a, b):
     return None
 
@@ -443,12 +456,18 @@ def calculate_tax_deduction(*_args, **kwargs):
     employee = kwargs["employee"]
     start_date = kwargs["start_date"]
     end_date = kwargs["end_date"]
-    specific_deductions = models.Deduction.objects.filter(
+    
+    # Get active country for filtering deductions
+    active_country = get_active_country()
+    
+    specific_deductions = Deduction.objects.filter(
         specific_employees=employee, is_pretax=False, is_tax=True
-    )
-    active_employee_deduction = models.Deduction.objects.filter(
+    ).filter(country__in=[active_country, 'GLOBAL'])
+    
+    active_employee_deduction = Deduction.objects.filter(
         include_active_employees=True, is_pretax=False, is_tax=True
-    ).exclude(exclude_employees=employee)
+    ).exclude(exclude_employees=employee).filter(country__in=[active_country, 'GLOBAL'])
+    
     deductions = specific_deductions | active_employee_deduction
     deductions = (
         deductions.exclude(one_time_date__lt=start_date)
@@ -505,15 +524,20 @@ def calculate_pre_tax_deduction(*_args, **kwargs):
     start_date = kwargs["start_date"]
     end_date = kwargs["end_date"]
 
-    specific_deductions = models.Deduction.objects.filter(
+    # Get active country for filtering deductions
+    active_country = get_active_country()
+
+    specific_deductions = Deduction.objects.filter(
         specific_employees=employee, is_pretax=True, is_tax=False
-    )
-    conditional_deduction = models.Deduction.objects.filter(
+    ).filter(country__in=[active_country, 'GLOBAL'])
+    
+    conditional_deduction = Deduction.objects.filter(
         is_condition_based=True, is_pretax=True, is_tax=False
-    ).exclude(exclude_employees=employee)
-    active_employee_deduction = models.Deduction.objects.filter(
+    ).exclude(exclude_employees=employee).filter(country__in=[active_country, 'GLOBAL'])
+    
+    active_employee_deduction = Deduction.objects.filter(
         include_active_employees=True, is_pretax=True, is_tax=False
-    ).exclude(exclude_employees=employee)
+    ).exclude(exclude_employees=employee).filter(country__in=[active_country, 'GLOBAL'])
 
     deductions = specific_deductions | conditional_deduction | active_employee_deduction
     deductions = (
@@ -613,15 +637,22 @@ def calculate_post_tax_deduction(*_args, **kwargs):
     total_allowance = kwargs["total_allowance"]
     basic_pay = kwargs["basic_pay"]
     day_dict = kwargs["day_dict"]
-    specific_deductions = models.Deduction.objects.filter(
+    
+    # Get active country for filtering deductions
+    active_country = get_active_country()
+    
+    specific_deductions = Deduction.objects.filter(
         specific_employees=employee, is_pretax=False, is_tax=False
-    )
-    conditional_deduction = models.Deduction.objects.filter(
+    ).filter(country__in=[active_country, 'GLOBAL'])
+    
+    conditional_deduction = Deduction.objects.filter(
         is_condition_based=True, is_pretax=False, is_tax=False
-    ).exclude(exclude_employees=employee)
-    active_employee_deduction = models.Deduction.objects.filter(
+    ).exclude(exclude_employees=employee).filter(country__in=[active_country, 'GLOBAL'])
+    
+    active_employee_deduction = Deduction.objects.filter(
         include_active_employees=True, is_pretax=False, is_tax=False
-    ).exclude(exclude_employees=employee)
+    ).exclude(exclude_employees=employee).filter(country__in=[active_country, 'GLOBAL'])
+    
     deductions = specific_deductions | conditional_deduction | active_employee_deduction
     deductions = (
         deductions.exclude(one_time_date__lt=start_date)

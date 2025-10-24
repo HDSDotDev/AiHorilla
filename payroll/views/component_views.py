@@ -117,7 +117,17 @@ def payroll_calculation(employee, start_date, end_date):
     Returns:
         dict: A dictionary containing the calculated payroll components:
     """
+    
+    # CHECK IF PHILIPPINES IS ACTIVE - USE PHILIPPINES CALCULATOR
+    from payroll.models.country_models import PayrollCountryConfig
+    active_country = PayrollCountryConfig.objects.filter(is_active=True).first()
+    
+    if active_country and active_country.country == 'PH':
+        # USE PHILIPPINES PAYROLL CALCULATOR - DO NOT FALL BACK TO USA
+        from payroll.methods.philippines_payroll import philippines_payroll_calculation
+        return philippines_payroll_calculation(employee, start_date, end_date)
 
+    # USA PAYROLL CALCULATION (only runs if Philippines is NOT active)
     basic_pay_details = compute_salary_on_period(employee, start_date, end_date)
     contract = basic_pay_details["contract"]
     contract_wage = basic_pay_details["contract_wage"]

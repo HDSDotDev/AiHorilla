@@ -1,0 +1,67 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">
+                {% trans "13th Month Pay Configuration" %}
+            </h1>
+        </div>
+    </section>
+
+    <section class="oh-wrapper">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "13th Month Pay Settings" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Configuration for 13th month pay computation as per Presidential Decree No. 851" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Year" %}</th>
+                                <th>{% trans "Computation Method" %}</th>
+                                <th class="text-end">{% trans "Tax Exempt Amount" %}</th>
+                                <th>{% trans "Description" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for config in configs %}
+                            <tr>
+                                <td><span class="badge bg-success">{{ config.year }}</span></td>
+                                <td>
+                                    {% if config.computation_method == 'TOTAL_BASIC' %}
+                                        <span class="badge bg-info">Total Basic Salary / 12</span>
+                                    {% elif config.computation_method == 'ONE_MONTH' %}
+                                        <span class="badge bg-warning">One Month Salary</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">₱{{ config.tax_exempt_amount|floatformat:2 }}</td>
+                                <td class="small text-muted">{{ config.description|default:"Standard 13th month pay" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">
+                                    {% trans "No 13th month pay configuration available" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>{% trans "Law Reference:" %}</strong>
+                    {% trans "Presidential Decree No. 851 mandates all employers to pay their rank-and-file employees a 13th month pay not later than December 24 of every year." %}
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

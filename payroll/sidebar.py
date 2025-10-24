@@ -48,6 +48,51 @@ SUBMENUS = [
         "redirect": reverse("filing-status-view"),
         "accessibility": "payroll.sidebar.federal_tax_accessibility",
     },
+    {
+        "menu": trans("SSS Contributions"),
+        "redirect": reverse("philippines-sss-contributions"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("PhilHealth Contributions"),
+        "redirect": reverse("philippines-philhealth-contributions"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Pag-IBIG Contributions"),
+        "redirect": reverse("philippines-pagibig-contributions"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("BIR Tax Brackets"),
+        "redirect": reverse("philippines-tax-brackets"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Regional Minimum Wage"),
+        "redirect": reverse("philippines-regions"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("13th Month Pay"),
+        "redirect": reverse("philippines-thirteenth-month"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Overtime Rules"),
+        "redirect": reverse("philippines-overtime-rules"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Holiday Pay"),
+        "redirect": reverse("philippines-holiday-pay"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("COLA (Cost of Living)"),
+        "redirect": reverse("philippines-cola"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
 ]
 
 
@@ -68,4 +113,30 @@ def loan_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 
 def federal_tax_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("payroll.view_filingstatus")
+    """Show Federal Tax only when USA is the active country"""
+    from payroll.models.country_models import PayrollCountryConfig
+    try:
+        active_country = PayrollCountryConfig.objects.filter(is_active=True).first()
+        if active_country and active_country.country == 'USA':
+            return request.user.has_perm("payroll.view_filingstatus")
+        return False
+    except:
+        # Default to showing USA menus if no country config exists
+        return request.user.has_perm("payroll.view_filingstatus")
+
+
+def country_settings_accessibility(request, submenu, user_perms, *args, **kwargs):
+    """Access to country settings - admin only"""
+    return request.user.is_staff or request.user.is_superuser
+
+
+def philippines_only_menu(request, submenu, user_perms, *args, **kwargs):
+    """Show this menu only when Philippines is the active country"""
+    from payroll.models.country_models import PayrollCountryConfig
+    try:
+        active_country = PayrollCountryConfig.objects.filter(is_active=True).first()
+        if active_country and active_country.country == 'PH':
+            return True
+        return False
+    except Exception as e:
+        return False
