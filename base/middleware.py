@@ -40,6 +40,8 @@ class CompanyMiddleware:
         """
         Retrieve the company ID from the request or session.
         """
+        from django.db import OperationalError, ProgrammingError
+        
         if getattr(request, "user", False) and not request.user.is_anonymous:
             try:
                 if com_id := request.session.get("selected_company", None):
@@ -52,7 +54,7 @@ class CompanyMiddleware:
                     return getattr(
                         request.user.employee_get.employee_work_info, "company_id", None
                     )
-            except AttributeError:
+            except (AttributeError, OperationalError, ProgrammingError):
                 pass
         return None
 

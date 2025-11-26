@@ -21,7 +21,11 @@ class AttendanceMiddleware(MiddlewareMixin):
         """
         Triggers the `trigger_function` on each request.
         """
-        self.trigger_function()
+        try:
+            self.trigger_function()
+        except Exception:
+            # Silently fail during migrations or if tables don't exist
+            pass
 
     def trigger_function(self):
         """
@@ -30,13 +34,18 @@ class AttendanceMiddleware(MiddlewareMixin):
         auto punch-out time has passed, the function attempts to clock out the employee
         automatically by invoking the `clock_out` function.
         """
+        from django.db import OperationalError, ProgrammingError
         from attendance.models import Attendance, AttendanceActivity
         from attendance.views.clock_in_out import clock_out
         from base.models import EmployeeShiftSchedule
 
-        automatic_check_out_shifts = EmployeeShiftSchedule.objects.filter(
-            is_auto_punch_out_enabled=True
-        )
+        try:
+            automatic_check_out_shifts = EmployeeShiftSchedule.objects.filter(
+                is_auto_punch_out_enabled=True
+            )
+        except (OperationalError, ProgrammingError):
+            # Tables don't exist yet (during migrations)
+            return
 
         for shift_schedule in automatic_check_out_shifts:
             activities = AttendanceActivity.objects.filter(

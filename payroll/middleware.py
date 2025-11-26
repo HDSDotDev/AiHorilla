@@ -13,9 +13,15 @@ def get_active_payroll_country(request):
     """
     Get the active payroll country configuration
     """
+    from django.db import OperationalError, ProgrammingError
+    
     if not hasattr(request, '_cached_payroll_country'):
-        company_id = getattr(request.session.get('selected_company'), 'id', None) if hasattr(request, 'session') else None
-        request._cached_payroll_country = PayrollCountryConfig.get_active_country(company_id)
+        try:
+            company_id = getattr(request.session.get('selected_company'), 'id', None) if hasattr(request, 'session') else None
+            request._cached_payroll_country = PayrollCountryConfig.get_active_country(company_id)
+        except (OperationalError, ProgrammingError):
+            # Tables don't exist yet (during migrations)
+            request._cached_payroll_country = None
     return request._cached_payroll_country
 
 
