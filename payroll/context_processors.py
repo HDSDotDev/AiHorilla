@@ -67,9 +67,15 @@ def get_deductions(request):
     """
     This method used to return the deduction
     """
-    deductions = Deduction.objects.filter(
-        only_show_under_employee=False, employer_rate__gt=0
-    )
+    from django.db import OperationalError, ProgrammingError
+    
+    try:
+        deductions = Deduction.objects.filter(
+            only_show_under_employee=False, employer_rate__gt=0
+        )
+    except (OperationalError, ProgrammingError):
+        deductions = []
+    
     return {"get_deductions": deductions}
 
 
@@ -77,7 +83,13 @@ def get_active_employees(request):
     """
     This method used to return the deduction
     """
-    employees = Employee.objects.filter(
-        is_active=True, contract_set__isnull=False, payslip__isnull=False
-    ).distinct()
+    from django.db import OperationalError, ProgrammingError
+    
+    try:
+        employees = Employee.objects.filter(
+            is_active=True, contract_set__isnull=False, payslip__isnull=False
+        ).distinct()
+    except (OperationalError, ProgrammingError):
+        employees = []
+    
     return {"get_active_employees": employees}

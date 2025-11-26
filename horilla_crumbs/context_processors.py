@@ -210,15 +210,19 @@ def breadcrumbs(request):
         parts = _split_path(request)
         path = base_url
 
-        if apps.is_installed("recruitment"):
-            from recruitment.models import Candidate
+        from django.db import OperationalError, ProgrammingError
+        
+        try:
+            if apps.is_installed("recruitment"):
+                from recruitment.models import Candidate
+                candidates = Candidate.objects.filter(is_active=True)
+            else:
+                candidates = None
 
-            candidates = Candidate.objects.filter(is_active=True)
-
-        else:
+            employees = Employee.objects.all()
+        except (OperationalError, ProgrammingError):
             candidates = None
-
-        employees = Employee.objects.all()
+            employees = []
 
         if len(parts) > 1:
 
@@ -284,9 +288,10 @@ def breadcrumbs(request):
 
                 if model_value:
                     try:
+                        from django.db import OperationalError, ProgrammingError
                         obj = model_value.objects.get(id=item)  # completed
                         new_dict["name"] = str(obj)
-                    except:
+                    except (OperationalError, ProgrammingError, Exception):
                         pass
 
             key = "HTTP_HX_REQUEST"
