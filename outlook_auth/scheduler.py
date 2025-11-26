@@ -4,6 +4,7 @@ outlook_auth/scheduler.py
 """
 
 import logging
+import os
 import sys
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -31,7 +32,7 @@ def refresh_outlook_auth_token():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     scheduler = BackgroundScheduler()
     scheduler.add_job(
         refresh_outlook_auth_token,

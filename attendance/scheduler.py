@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 
 import pytz
@@ -50,23 +51,26 @@ def create_work_record():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     """
     Initializes and starts background tasks using APScheduler when the server is running.
     """
-    scheduler = BackgroundScheduler(timezone=pytz.timezone(settings.TIME_ZONE))
+    try:
+        scheduler = BackgroundScheduler(timezone=pytz.timezone(settings.TIME_ZONE))
 
-    scheduler.add_job(
-        create_work_record, "interval", minutes=30, misfire_grace_time=3600 * 3
-    )
-    scheduler.add_job(
-        create_work_record,
-        "cron",
-        hour=0,
-        minute=30,
-        misfire_grace_time=3600 * 9,
-        id="create_daily_work_record",
-        replace_existing=True,
-    )
+        scheduler.add_job(
+            create_work_record, "interval", minutes=30, misfire_grace_time=3600 * 3
+        )
+        scheduler.add_job(
+            create_work_record,
+            "cron",
+            hour=0,
+            minute=30,
+            misfire_grace_time=3600 * 9,
+            id="create_daily_work_record",
+            replace_existing=True,
+        )
 
-    scheduler.start()
+        scheduler.start()
+    except Exception as e:
+        print(f"⚠️  Failed to start attendance scheduler: {e}")

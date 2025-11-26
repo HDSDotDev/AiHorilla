@@ -4,6 +4,7 @@ scheduler.py
 This module is used to register scheduled tasks
 """
 
+import os
 import sys
 from datetime import date, timedelta
 
@@ -95,8 +96,11 @@ def notify_expiring_documents():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
+    try:
     scheduler = BackgroundScheduler()
     scheduler.add_job(notify_expiring_assets, "interval", days=1)
     scheduler.add_job(notify_expiring_documents, "interval", hours=4)
-    scheduler.start()
+            scheduler.start()
+    except Exception as e:
+        print(f"⚠️  Failed to start asset scheduler: {e}")

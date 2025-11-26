@@ -1,4 +1,5 @@
 import calendar
+import os
 import sys
 from datetime import date, datetime, timedelta
 
@@ -438,7 +439,7 @@ def recurring_holiday():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     scheduler = BackgroundScheduler()
 
     # Add jobs with next_run_time set to the end of the previous job

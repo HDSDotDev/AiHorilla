@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 from datetime import timedelta
 
@@ -135,11 +136,14 @@ def block_unblock_disciplinary():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     """
     Initializes and starts background tasks using APScheduler when the server is running.
     """
+    try:
     scheduler = BackgroundScheduler()
     scheduler.add_job(update_experience, "interval", hours=4)
     scheduler.add_job(block_unblock_disciplinary, "interval", seconds=25)
-    scheduler.start()
+            scheduler.start()
+    except Exception as e:
+        print(f"⚠️  Failed to start employee scheduler: {e}")
