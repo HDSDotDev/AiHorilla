@@ -98,9 +98,9 @@ if not any(
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
 ) and not os.getenv("SKIP_SCHEDULERS"):
     try:
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(notify_expiring_assets, "interval", days=1)
-    scheduler.add_job(notify_expiring_documents, "interval", hours=4)
-            scheduler.start()
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(notify_expiring_assets, "interval", days=1)
+        scheduler.add_job(notify_expiring_documents, "interval", hours=4)
+        scheduler.start()
     except Exception as e:
         print(f"⚠️  Failed to start asset scheduler: {e}")

@@ -56,10 +56,9 @@ if not any(
     Initializes and starts background tasks using APScheduler when the server is running.
     """
     try:
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(candidate_convert, "interval", minutes=5)
-    scheduler.add_job(recruitment_close, "interval", hours=1)
-
-            scheduler.start()
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(candidate_convert, "interval", minutes=5)
+        scheduler.add_job(recruitment_close, "interval", hours=1)
+        scheduler.start()
     except Exception as e:
         print(f"⚠️  Failed to start recruitment scheduler: {e}")

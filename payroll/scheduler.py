@@ -144,9 +144,9 @@ if not any(
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
 ) and not os.getenv("SKIP_SCHEDULERS"):
     try:
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(expire_contract, "interval", hours=4)
-    scheduler.add_job(auto_payslip_generate, "interval", hours=3)
-            scheduler.start()
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(expire_contract, "interval", hours=4)
+        scheduler.add_job(auto_payslip_generate, "interval", hours=3)
+        scheduler.start()
     except Exception as e:
         print(f"⚠️  Failed to start payroll scheduler: {e}")
