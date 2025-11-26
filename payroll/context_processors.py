@@ -14,6 +14,8 @@ def default_currency(request):
     """
     This method will return the currency
     """
+    from django.db import OperationalError, ProgrammingError
+    
     # Check active country config
     active_country = getattr(request, 'payroll_country', None)
     
@@ -22,13 +24,18 @@ def default_currency(request):
     if active_country and active_country.country == 'PH':
         default_symbol = "₱"
     
-    if models.PayrollSettings.objects.first() is None:
-        settings = models.PayrollSettings()
-        settings.currency_symbol = default_symbol
-        settings.save()
-    
-    symbol = models.PayrollSettings.objects.first().currency_symbol
-    position = models.PayrollSettings.objects.first().position
+    try:
+        if models.PayrollSettings.objects.first() is None:
+            settings = models.PayrollSettings()
+            settings.currency_symbol = default_symbol
+            settings.save()
+        
+        symbol = models.PayrollSettings.objects.first().currency_symbol
+        position = models.PayrollSettings.objects.first().position
+    except (OperationalError, ProgrammingError):
+        # Tables don't exist yet
+        symbol = default_symbol
+        position = "before"
     
     return {
         "currency": request.session.get("currency", symbol),
