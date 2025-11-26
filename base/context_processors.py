@@ -201,16 +201,15 @@ def resignation_request_enabled(request):
     Check weather resignation_request enabled of not in offboarding
     """
     from django.db import OperationalError, ProgrammingError
+    from django.contrib.contenttypes.models import ContentType
     
     enabled_resignation_request = False
     first = None
     if apps.is_installed("offboarding"):
         try:
-            OffboardingGeneralSetting = get_horilla_model_class(
-                app_label="offboarding", model="offboardinggeneralsetting"
-            )
+            from offboarding.models import OffboardingGeneralSetting
             first = OffboardingGeneralSetting.objects.first()
-        except (OperationalError, ProgrammingError):
+        except (OperationalError, ProgrammingError, ImportError, ContentType.DoesNotExist):
             first = None
     if first:
         enabled_resignation_request = first.resignation_request
@@ -222,16 +221,15 @@ def timerunner_enabled(request):
     Check weather resignation_request enabled of not in offboarding
     """
     from django.db import OperationalError, ProgrammingError
+    from django.contrib.contenttypes.models import ContentType
     
     first = None
     enabled_timerunner = True
     if apps.is_installed("attendance"):
         try:
-            AttendanceGeneralSetting = get_horilla_model_class(
-                app_label="attendance", model="attendancegeneralsetting"
-            )
+            from attendance.models import AttendanceGeneralSetting
             first = AttendanceGeneralSetting.objects.first()
-        except (OperationalError, ProgrammingError):
+        except (OperationalError, ProgrammingError, ImportError, ContentType.DoesNotExist):
             first = None
     if first:
         enabled_timerunner = first.time_runner
@@ -243,16 +241,15 @@ def intial_notice_period(request):
     Check weather resignation_request enabled of not in offboarding
     """
     from django.db import OperationalError, ProgrammingError
+    from django.contrib.contenttypes.models import ContentType
     
     initial = 30
     first = None
     if apps.is_installed("payroll"):
         try:
-            PayrollGeneralSetting = get_horilla_model_class(
-                app_label="payroll", model="payrollgeneralsetting"
-            )
+            from payroll.models import PayrollGeneralSetting
             first = PayrollGeneralSetting.objects.first()
-        except (OperationalError, ProgrammingError):
+        except (OperationalError, ProgrammingError, ImportError, ContentType.DoesNotExist):
             first = None
     if first:
         initial = first.notice_period
@@ -264,15 +261,14 @@ def check_candidate_self_tracking(request):
     This method is used to get the candidate self tracking is enabled or not
     """
     from django.db import OperationalError, ProgrammingError
+    from django.contrib.contenttypes.models import ContentType
 
     candidate_self_tracking = False
     if apps.is_installed("recruitment"):
         try:
-            RecruitmentGeneralSetting = get_horilla_model_class(
-                app_label="recruitment", model="recruitmentgeneralsetting"
-            )
+            from recruitment.models import RecruitmentGeneralSetting
             first = RecruitmentGeneralSetting.objects.first()
-        except (OperationalError, ProgrammingError):
+        except (OperationalError, ProgrammingError, ImportError, ContentType.DoesNotExist):
             first = None
     else:
         first = None
@@ -286,15 +282,14 @@ def check_candidate_self_tracking_rating(request):
     This method is used to check enabled/disabled of rating option
     """
     from django.db import OperationalError, ProgrammingError
+    from django.contrib.contenttypes.models import ContentType
     
     rating_option = False
     if apps.is_installed("recruitment"):
         try:
-            RecruitmentGeneralSetting = get_horilla_model_class(
-                app_label="recruitment", model="recruitmentgeneralsetting"
-            )
+            from recruitment.models import RecruitmentGeneralSetting
             first = RecruitmentGeneralSetting.objects.first()
-        except (OperationalError, ProgrammingError):
+        except (OperationalError, ProgrammingError, ImportError, ContentType.DoesNotExist):
             first = None
     else:
         first = None
