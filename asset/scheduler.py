@@ -18,12 +18,17 @@ def notify_expiring_assets():
     """
     Finds all Expiring Assets and send a notification on the notify_before date.
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from asset.models import Asset
 
-    today = date.today()
-    assets = Asset.objects.all()
+    try:
+        today = date.today()
+        assets = Asset.objects.all()
+    except (OperationalError, ProgrammingError) as e:
+        print(f"notify_expiring_assets: Database not ready - {e}")
+        return
 
     # Cache bot & superuser once
     bot = User.objects.filter(username="Horilla Bot").only("id").first()
@@ -59,12 +64,17 @@ def notify_expiring_documents():
     """
     Finds all Expiring Documents and send a notification on the notify_before date.
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from horilla_documents.models import Document
 
-    today = date.today()
-    documents = Document.objects.all()
+    try:
+        today = date.today()
+        documents = Document.objects.all()
+    except (OperationalError, ProgrammingError) as e:
+        print(f"notify_expiring_documents: Database not ready - {e}")
+        return
     bot = User.objects.filter(username="Horilla Bot").first()
     for document in documents:
         if document.expiry_date:

@@ -8,11 +8,17 @@ from dateutil.relativedelta import relativedelta
 
 
 def leave_reset():
+    from django.db.utils import OperationalError, ProgrammingError
     from leave.models import LeaveType
 
-    today = datetime.now()
-    today_date = today.date()
-    leave_types = LeaveType.objects.filter(reset=True)
+    try:
+        today = datetime.now()
+        today_date = today.date()
+        leave_types = LeaveType.objects.filter(reset=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"leave_reset: Database not ready - {e}")
+        return
+    
     # Looping through filtered leave types with reset is true
     for leave_type in leave_types:
         # Looping through all available leaves

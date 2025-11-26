@@ -10,13 +10,18 @@ from base.backends import logger
 
 
 def create_work_record():
+    from django.db.utils import OperationalError, ProgrammingError
     from attendance.models import WorkRecords
     from employee.models import Employee
 
-    date = datetime.datetime.today()
-    work_records = WorkRecords.objects.filter(date=date).values_list(
-        "employee_id", flat=True
-    )
+    try:
+        date = datetime.datetime.today()
+        work_records = WorkRecords.objects.filter(date=date).values_list(
+            "employee_id", flat=True
+        )
+    except (OperationalError, ProgrammingError) as e:
+        print(f"create_work_record: Database not ready - {e}")
+        return
     employees = Employee.objects.exclude(id__in=work_records)
     records_to_create = []
 

@@ -7,9 +7,14 @@ from notifications.signals import notify
 
 
 def cyclic_feedback_creation():
+    from django.db.utils import OperationalError, ProgrammingError
     from pms.models import Feedback
 
-    feedbacks = Feedback.objects.filter(cyclic_next_start_date=datetime.today().date())
+    try:
+        feedbacks = Feedback.objects.filter(cyclic_next_start_date=datetime.today().date())
+    except (OperationalError, ProgrammingError) as e:
+        print(f"cyclic_feedback_creation: Database not ready - {e}")
+        return
     for feedback in feedbacks:
         if feedback.cyclic_feedback:
             feedback_obj = Feedback()

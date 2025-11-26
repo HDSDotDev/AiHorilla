@@ -7,13 +7,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 def update_experience():
+    from django.db.utils import OperationalError, ProgrammingError
     from employee.models import EmployeeWorkInformation
 
     """
     This scheduled task to trigger the experience calculator
     to update the employee work experience
     """
-    queryset = EmployeeWorkInformation.objects.filter(employee_id__is_active=True)
+    try:
+        queryset = EmployeeWorkInformation.objects.filter(employee_id__is_active=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"update_experience: Database not ready - {e}")
+        return
+    
     for instance in queryset:
         instance.experience_calculator()
     return
@@ -23,11 +29,17 @@ def block_unblock_disciplinary():
     """
     This scheduled task to trigger the Disciplinary action and take the suspens
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from base.models import EmployeeShiftSchedule
     from employee.models import DisciplinaryAction
     from employee.policies import employee_account_block_unblock
 
-    dis_action = DisciplinaryAction.objects.all()
+    try:
+        dis_action = DisciplinaryAction.objects.all()
+    except (OperationalError, ProgrammingError) as e:
+        print(f"block_unblock_disciplinary: Database not ready - {e}")
+        return
+    
     for dis in dis_action:
 
         if dis.action.block_option:

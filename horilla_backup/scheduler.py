@@ -82,6 +82,15 @@ scheduler = BackgroundScheduler()
 
 
 def google_drive_backup():
+    from django.db.utils import OperationalError, ProgrammingError
+    
+    try:
+        if GoogleDriveBackup.objects.exists():
+            pass
+    except (OperationalError, ProgrammingError) as e:
+        print(f"google_drive_backup: Database not ready - {e}")
+        return
+    
     if GoogleDriveBackup.objects.exists():
         google_drive = GoogleDriveBackup.objects.first()
         service_account_file = google_drive.service_account_file.path
@@ -108,7 +117,16 @@ def start_gdrive_backup_job():
     """
     Start the backup job based on the LocalBackup configuration.
     """
+    from django.db.utils import OperationalError, ProgrammingError
+    
     # Check if any Gdrive Backup object exists
+    try:
+        if GoogleDriveBackup.objects.exists():
+            pass
+    except (OperationalError, ProgrammingError) as e:
+        print(f"start_gdrive_backup_job: Database not ready - {e}")
+        return
+    
     if GoogleDriveBackup.objects.exists():
         gdrive_backup = GoogleDriveBackup.objects.first()
 

@@ -16,10 +16,15 @@ def refresh_outlook_auth_token():
     """
     scheduler method to refresh token
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from outlook_auth.models import AzureApi
     from outlook_auth.views import refresh_outlook_token
 
-    apis = AzureApi.objects.filter(token__isnull=False)
+    try:
+        apis = AzureApi.objects.filter(token__isnull=False)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"refresh_outlook_auth_token: Database not ready - {e}")
+        return
     for api in apis:
         try:
             refresh_outlook_token(api)

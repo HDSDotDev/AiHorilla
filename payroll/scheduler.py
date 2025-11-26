@@ -23,9 +23,14 @@ def expire_contract():
     Finds all active contracts whose end date is earlier than the current date
     and updates their status to "expired".
     """
-    Contract.objects.filter(
-        contract_status="active", contract_end_date__lt=date.today()
-    ).update(contract_status="expired")
+    from django.db.utils import OperationalError, ProgrammingError
+    
+    try:
+        Contract.objects.filter(
+            contract_status="active", contract_end_date__lt=date.today()
+        ).update(contract_status="expired")
+    except (OperationalError, ProgrammingError) as e:
+        print(f"expire_contract: Database not ready - {e}")
     return
 
 
@@ -98,11 +103,19 @@ def auto_payslip_generate():
     """
     Generating payslips for active contract employees
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from base.models import Company
 
     from .models.models import PayslipAutoGenerate
 
     # from payroll.models import PayslipAutoGenerate
+    try:
+        if PayslipAutoGenerate.objects.filter(auto_generate=True).exists():
+            pass
+    except (OperationalError, ProgrammingError) as e:
+        print(f"auto_payslip_generate: Database not ready - {e}")
+        return
+    
     if PayslipAutoGenerate.objects.filter(auto_generate=True).exists():
         today = date.today()
         day_today = today.day
