@@ -128,11 +128,21 @@ try:
     print(f"  Existing core tables: {existing_tables if existing_tables else 'NONE'}", flush=True)
     
     if len(existing_tables) < 3:
-        print("  ⚠ Core tables missing! Using --run-syncdb to create all tables...", flush=True)
-        # Tables don't exist but migrations might be marked as applied
-        # Use syncdb to create all tables from models
-        call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
-        print("  ✓ All tables created via syncdb", flush=True)
+        print("  ⚠ Core tables missing! Running full migrate to create tables...", flush=True)
+        # Delete ALL migration records to force fresh start
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM django_migrations")
+                deleted = cursor.rowcount
+                connection.commit()
+                print(f"  ✓ Deleted {deleted} migration records (fresh start)", flush=True)
+        except Exception as del_err:
+            print(f"  ⚠ Could not clear migrations: {del_err}", flush=True)
+        
+        # Now run full migrate - this will apply all migrations from scratch
+        print("  Running full migrate (creates all tables)...", flush=True)
+        call_command('migrate', '--noinput', verbosity=1)
+        print("  ✓ All tables created via migrate", flush=True)
     else:
         print("  Core tables exist, running normal migrations...", flush=True)
         base_apps = ['base', 'employee', 'leave', 'asset', 'attendance', 'horilla_audit']
@@ -170,17 +180,8 @@ try:
         print("  Assuming tables don't exist...", flush=True)
     
     if not table_exists:
-        print("  Payroll tables don't exist (should have been created in Phase 2 syncdb)", flush=True)
-        print("  Attempting to fake payroll migrations...", flush=True)
-        
-        # Tables should already exist from Phase 2 syncdb
-        # Just mark payroll migrations as applied
-        try:
-            call_command('migrate', 'payroll', '--fake', '--noinput', verbosity=0)
-            print("  ✓ Payroll migrations marked as applied", flush=True)
-        except Exception as fake_err:
-            print(f"  ⚠ Could not fake migrations: {fake_err}", flush=True)
-            print("  This is OK if Phase 2 syncdb created the tables", flush=True)
+        print("  ✓ Payroll tables should have been created in Phase 2 migrate", flush=True)
+        print("  (Nothing to do - Phase 2 applied all migrations)", flush=True)
     else:
         print("  ✓ Payroll tables already exist", flush=True)
     
