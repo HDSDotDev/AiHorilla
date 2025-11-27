@@ -36,7 +36,7 @@ from django.apps import apps
 from employee.models import Employee, EmployeeWorkInformation, EmployeeBankDetails
 from base.models import (
     Company, Department, JobPosition, WorkType, 
-    EmployeeShift, EmployeeType, ShiftRequest, Shift
+    EmployeeShift, EmployeeType, ShiftRequest
 )
 
 # Payroll models
