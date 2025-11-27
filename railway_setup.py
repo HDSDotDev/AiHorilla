@@ -19,10 +19,28 @@ print("✓ Django settings module set", flush=True)
 os.environ['SKIP_SCHEDULERS'] = '1'
 print("✓ Schedulers disabled", flush=True)
 
-# Setup Django
+# Prevent apps from doing database operations in ready() methods before migrations
+os.environ['SKIP_DB_INIT_IN_READY'] = '1'
+print("✓ Database initialization in app ready() methods disabled", flush=True)
+
+# Setup Django with timeout protection
 print("Setting up Django...", flush=True)
-django.setup()
-print("✓ Django setup complete", flush=True)
+print("  (This may take 30-60 seconds on first run)", flush=True)
+
+try:
+    # Set connection timeout before Django setup
+    os.environ['DATABASE_CONNECT_TIMEOUT'] = '10'
+    
+    # Prevent database checks during setup
+    os.environ['DJANGO_SKIP_DB_CHECK'] = '1'
+    
+    django.setup()
+    print("✓ Django setup complete", flush=True)
+except Exception as e:
+    print(f"✗ Django setup failed: {type(e).__name__}: {e}", flush=True)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 
 from django.core.management import call_command
 from django.db import connection

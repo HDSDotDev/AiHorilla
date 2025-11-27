@@ -17,8 +17,26 @@ class BaseConfig(AppConfig):
         from base import signals
 
         super().ready()
+        
+        # Skip database operations during initial setup
+        import os
+        if os.environ.get('SKIP_DB_INIT_IN_READY'):
+            return
+            
         try:
             from base.models import EmployeeShiftDay
+            from django.db import connection
+            from django.db.utils import OperationalError, ProgrammingError
+            
+            # Check if table exists before querying
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'base_employeeshiftday')"
+                )
+                table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                return  # Skip if table doesn't exist yet (migrations haven't run)
 
             if not EmployeeShiftDay.objects.exists():
                 days = [
@@ -34,5 +52,8 @@ class BaseConfig(AppConfig):
                 EmployeeShiftDay.objects.bulk_create(
                     [EmployeeShiftDay(day=day[0]) for day in days]
                 )
+        except (OperationalError, ProgrammingError):
+            # Database/table doesn't exist yet - skip initialization
+            pass
         except Exception as e:
             pass
