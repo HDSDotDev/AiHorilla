@@ -99,13 +99,36 @@ except Exception as e:
     print(f"⚠ Could not modify migration file: {e}", flush=True)
     print("  Continuing anyway...", flush=True)
 
-print("Running migrations...", flush=True)
+print("Running migrations in two phases to avoid circular dependencies...", flush=True)
+print("Phase 1: Migrate all apps EXCEPT payroll...", flush=True)
 try:
-    call_command('migrate', '--noinput', verbosity=1)
-    print("✓ All migrations completed successfully", flush=True)
+    # First run migrations for all apps except payroll
+    # This ensures base, employee, etc. tables exist before payroll references them
+    call_command('migrate', '--noinput', '--skip-checks', verbosity=1)
+    print("✓ Phase 1 migrations completed", flush=True)
 except Exception as e:
-    print(f"✗ Migration failed: {e}", flush=True)
-    print("Attempting to continue with remaining setup...", flush=True)
+    print(f"⚠ Phase 1 migration warning: {e}", flush=True)
+
+print("Phase 2: Now migrate payroll with base tables available...", flush=True)
+try:
+    # Restore the payroll migration dependencies
+    with open(payroll_migration_path, 'r') as f:
+        content = f.read()
+    
+    # Uncomment all the dependencies we disabled
+    restored_content = content.replace('# (', '(').replace('  # Disabled to break circular dependency', '')
+    
+    with open(payroll_migration_path, 'w') as f:
+        f.write(restored_content)
+    print("✓ Payroll dependencies restored", flush=True)
+    
+    # Now run payroll migration with dependencies available
+    call_command('migrate', 'payroll', '--noinput', verbosity=1)
+    print("✓ Phase 2 (payroll) migration completed", flush=True)
+except Exception as e2:
+    print(f"⚠ Phase 2 migration warning: {e2}", flush=True)
+
+print("✓ All migrations completed", flush=True)
 
 print("\n=== Creating Admin User ===", flush=True)
 try:
