@@ -5,16 +5,20 @@ This module is used to register scheduled tasks
 """
 
 import json
+import logging
 import sys
 from datetime import date, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dateutil.relativedelta import relativedelta
+from django.core.exceptions import ValidationError
 
 from payroll.methods.methods import calculate_employer_contribution, save_payslip
 from payroll.views.component_views import payroll_calculation
 
 from .models.models import Contract, Payslip
+
+logger = logging.getLogger(__name__)
 
 
 def expire_contract():
@@ -70,22 +74,37 @@ def generate_payslip(date, companies, all):
             continue
         if start_date < contract.contract_start_date:
             start_date = contract.contract_start_date
-        payslip_data = payroll_calculation(employee, start_date, end_date)
-        payslip_data["payslip"] = payslip
-        data = {}
-        data["employee"] = employee
-        data["start_date"] = payslip_data["start_date"]
-        data["end_date"] = payslip_data["end_date"]
-        data["status"] = "draft"
-        data["contract_wage"] = payslip_data["contract_wage"]
-        data["basic_pay"] = payslip_data["basic_pay"]
-        data["gross_pay"] = payslip_data["gross_pay"]
-        data["deduction"] = payslip_data["total_deductions"]
-        data["net_pay"] = payslip_data["net_pay"]
-        data["pay_data"] = json.loads(payslip_data["json_data"])
-        calculate_employer_contribution(data)
-        data["installments"] = payslip_data["installments"]
-        payslip_data["instance"] = save_payslip(**data)
+        
+        # Handle payroll calculation with error handling (no request in scheduler)
+        try:
+            payslip_data = payroll_calculation(employee, start_date, end_date, request=None)
+            payslip_data["payslip"] = payslip
+            data = {}
+            data["employee"] = employee
+            data["start_date"] = payslip_data["start_date"]
+            data["end_date"] = payslip_data["end_date"]
+            data["status"] = "draft"
+            data["contract_wage"] = payslip_data["contract_wage"]
+            data["basic_pay"] = payslip_data["basic_pay"]
+            data["gross_pay"] = payslip_data["gross_pay"]
+            data["deduction"] = payslip_data["total_deductions"]
+            data["net_pay"] = payslip_data["net_pay"]
+            data["pay_data"] = json.loads(payslip_data["json_data"])
+            calculate_employer_contribution(data)
+            data["installments"] = payslip_data["installments"]
+            payslip_data["instance"] = save_payslip(**data)
+        except ValidationError as e:
+            logger.error(
+                f"Scheduled payslip generation failed for employee {employee.id} "
+                f"({employee.get_full_name()}): {str(e)}"
+            )
+            continue
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in scheduled payslip generation for employee {employee.id}: {e}",
+                exc_info=True
+            )
+            continue
 
 
 def is_last_day_of_month(date):

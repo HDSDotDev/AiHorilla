@@ -1,0 +1,180 @@
+{% extends 'index.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-gift"></i> {{ title }}</h2>
+                <div>
+                    <span class="badge bg-danger fs-6">Deadline: {{ deadline }}</span>
+                </div>
+            </div>
+            <p class="text-muted">
+                <strong>Presidential Decree No. 851:</strong> All employers shall pay their rank-and-file employees 
+                a 13th month pay not later than December 24 of every year.
+            </p>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> 
+                <strong>Calculation:</strong> Total Basic Salary for the Year ÷ 12 months<br>
+                <strong>Tax-Exempt:</strong> Up to ₱90,000/year (excess is taxable)
+            </div>
+        </div>
+    </div>
+
+    <!-- Year Selection -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <form method="GET" class="input-group">
+                <select name="year" class="form-select">
+                    <option value="2020" {% if "2020" == year|stringformat:"s" %}selected{% endif %}>2020</option>
+                    <option value="2021" {% if "2021" == year|stringformat:"s" %}selected{% endif %}>2021</option>
+                    <option value="2022" {% if "2022" == year|stringformat:"s" %}selected{% endif %}>2022</option>
+                    <option value="2023" {% if "2023" == year|stringformat:"s" %}selected{% endif %}>2023</option>
+                    <option value="2024" {% if "2024" == year|stringformat:"s" %}selected{% endif %}>2024</option>
+                    <option value="2025" {% if "2025" == year|stringformat:"s" %}selected{% endif %}>2025</option>
+                    <option value="2026" {% if "2026" == year|stringformat:"s" %}selected{% endif %}>2026</option>
+                    <option value="2027" {% if "2027" == year|stringformat:"s" %}selected{% endif %}>2027</option>
+                    <option value="2028" {% if "2028" == year|stringformat:"s" %}selected{% endif %}>2028</option>
+                    <option value="2029" {% if "2029" == year|stringformat:"s" %}selected{% endif %}>2029</option>
+                    <option value="2030" {% if "2030" == year|stringformat:"s" %}selected{% endif %}>2030</option>
+                </select>
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-calendar"></i> Change Year
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Employee Selection Form -->
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                            <i class="bi bi-check-all"></i> Select All
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll()">
+                            <i class="bi bi-x-square"></i> Deselect All
+                        </button>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-calculator"></i> Calculate 13th Month Pay
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                {% if employees %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" id="select-all" onclick="toggleAll(this)">
+                                    </th>
+                                    <th>Employee Name</th>
+                                    <th>Employee ID</th>
+                                    <th>Total Basic Salary ({{year}})</th>
+                                    <th>Months Worked</th>
+                                    <th>Estimated 13th Month Pay</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for data in employees %}
+                                <tr class="{% if not data.has_payslips %}table-warning{% endif %}">
+                                    <td>
+                                        {% if data.has_payslips %}
+                                        <input type="checkbox" name="employee_ids" value="{{ data.employee.id }}" class="employee-checkbox">
+                                        {% else %}
+                                        <input type="checkbox" disabled title="No payslips for {{year}}">
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ data.employee.get_full_name }}</strong>
+                                    </td>
+                                    <td>{{ data.employee.badge_id|default:"N/A" }}</td>
+                                    <td>₱{{ data.total_basic_ytd|floatformat:2 }}</td>
+                                    <td>{{ data.months_worked }} months</td>
+                                    <td class="fw-bold text-success">₱{{ data.estimated_13th_month|floatformat:2 }}</td>
+                                    <td>
+                                        {% if data.has_payslips %}
+                                            <span class="badge bg-success">Ready</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">No Payslips</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> No active employees found.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if employees %}
+        <div class="row mt-3">
+            <div class="col-12 text-end">
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="bi bi-calculator"></i> Calculate 13th Month Pay for Selected Employees
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </form>
+
+    <!-- Notes -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-journal-text"></i> Important Notes</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li><strong>Eligibility:</strong> All rank-and-file employees who worked for at least one month</li>
+                        <li><strong>Deadline:</strong> Must be paid on or before December 24</li>
+                        <li><strong>Calculation Basis:</strong> Total basic salary received during the calendar year ÷ 12</li>
+                        <li><strong>Pro-Rated:</strong> Employees who worked less than a year receive proportional amount</li>
+                        <li><strong>Tax Exemption:</strong> First ₱90,000 is tax-exempt, excess is taxable</li>
+                        <li><strong>Exclusions:</strong> Government employees, those already receiving 13th month or equivalent</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAll(source) {
+    const checkboxes = document.querySelectorAll('.employee-checkbox');
+    checkboxes.forEach(checkbox => checkbox.checked = source.checked);
+}
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.employee-checkbox');
+    checkboxes.forEach(checkbox => checkbox.checked = true);
+    document.getElementById('select-all').checked = true;
+}
+
+function deselectAll() {
+    const checkboxes = document.querySelectorAll('.employee-checkbox');
+    checkboxes.forEach(checkbox => checkbox.checked = false);
+    document.getElementById('select-all').checked = false;
+}
+</script>
+{% endblock %}

@@ -227,6 +227,16 @@ urlpatterns = [
     ),
     path("document-tab/<int:emp_id>", views.document_tab, name="document-tab"),
     path(
+        "government-ids-tab/<int:obj_id>",
+        views.government_ids_tab,
+        name="government-ids-tab",
+    ),
+    path(
+        "employee-update-government-ids/<int:obj_id>/",
+        views.employee_update_government_ids,
+        name="employee-update-government-ids",
+    ),
+    path(
         "bonus-points-tab/<int:emp_id>", views.bonus_points_tab, name="bonus-points-tab"
     ),
     path(

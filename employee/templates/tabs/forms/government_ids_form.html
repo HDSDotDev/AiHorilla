@@ -1,0 +1,179 @@
+{% load i18n %}
+{% load static %}
+
+<div class="oh-modal--show" role="dialog" aria-labelledby="oh-modal-title" aria-modal="true">
+  <div class="oh-modal__dialog">
+    <div class="oh-modal__dialog-header">
+      <h5 class="oh-modal__dialog-title">
+        <ion-icon name="document-text-outline"></ion-icon>
+        {% trans "Update Government IDs" %}
+      </h5>
+      <button type="button" class="oh-modal__close-btn" data-dismiss="oh-modal" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+    
+    <form method="POST" id="governmentIdsForm" hx-post="{% url 'employee-update-government-ids' employee.id %}" hx-target="#government_ids_target" hx-swap="outerHTML">
+      {% csrf_token %}
+      
+      <div class="oh-modal__dialog-body">
+        <div class="oh-alert oh-alert--info mb-3">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <span>{% trans "These IDs are required for Philippines payroll processing and government reporting." %}</span>
+        </div>
+
+        <!-- Philippines Government IDs -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="id_tin_number" class="form-label">
+              {% trans "TIN (Tax Identification Number)" %}
+              <span class="text-danger">*</span>
+            </label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="id_tin_number" 
+              name="tin_number" 
+              value="{{ employee.tin_number|default:'' }}"
+              placeholder="123-456-789-000"
+              pattern="[0-9]{3}-[0-9]{3}-[0-9]{3}-[0-9]{3}"
+              title="Format: 123-456-789-000"
+            >
+            <small class="form-text text-muted">{% trans "Format: 123-456-789-000" %}</small>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label for="id_sss_number" class="form-label">
+              {% trans "SSS Number" %}
+              <span class="text-danger">*</span>
+            </label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="id_sss_number" 
+              name="sss_number" 
+              value="{{ employee.sss_number|default:'' }}"
+              placeholder="01-2345678-9"
+              pattern="[0-9]{2}-[0-9]{7}-[0-9]{1}"
+              title="Format: 01-2345678-9"
+            >
+            <small class="form-text text-muted">{% trans "Format: 01-2345678-9" %}</small>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="id_philhealth_number" class="form-label">
+              {% trans "PhilHealth Number" %}
+              <span class="text-danger">*</span>
+            </label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="id_philhealth_number" 
+              name="philhealth_number" 
+              value="{{ employee.philhealth_number|default:'' }}"
+              placeholder="12-345678901-2"
+              pattern="[0-9]{2}-[0-9]{9}-[0-9]{1}"
+              title="Format: 12-345678901-2"
+            >
+            <small class="form-text text-muted">{% trans "Format: 12-345678901-2" %}</small>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label for="id_pagibig_number" class="form-label">
+              {% trans "Pag-IBIG Number" %}
+              <span class="text-danger">*</span>
+            </label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="id_pagibig_number" 
+              name="pagibig_number" 
+              value="{{ employee.pagibig_number|default:'' }}"
+              placeholder="1234-5678-9012"
+              pattern="[0-9]{4}-[0-9]{4}-[0-9]{4}"
+              title="Format: 1234-5678-9012"
+            >
+            <small class="form-text text-muted">{% trans "Format: 1234-5678-9012" %}</small>
+          </div>
+        </div>
+
+        <!-- Region Selection -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="id_ph_region" class="form-label">
+              {% trans "Philippines Region" %}
+              <span class="text-danger">*</span>
+            </label>
+            <select class="form-control oh-select oh-select--sm" id="id_ph_region" name="ph_region">
+              <option value="">{% trans "Select Region" %}</option>
+              {% for region in regions %}
+                <option value="{{ region.id }}" {% if employee.ph_region.id == region.id %}selected{% endif %}>
+                  {{ region.region_code }} - {{ region.region_name }}
+                </option>
+              {% endfor %}
+            </select>
+            <small class="form-text text-muted">{% trans "Determines minimum wage and COLA rates" %}</small>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label for="id_ph_tax_status" class="form-label">
+              {% trans "Tax Withholding Status" %}
+              <span class="text-danger">*</span>
+            </label>
+            <select class="form-control oh-select oh-select--sm" id="id_ph_tax_status" name="ph_tax_status">
+              <option value="S" {% if employee.ph_tax_status == 'S' %}selected{% endif %}>{% trans "Single" %}</option>
+              <option value="ME" {% if employee.ph_tax_status == 'ME' %}selected{% endif %}>{% trans "Married Employee" %}</option>
+              <option value="S1" {% if employee.ph_tax_status == 'S1' %}selected{% endif %}>{% trans "Single with 1 dependent" %}</option>
+              <option value="S2" {% if employee.ph_tax_status == 'S2' %}selected{% endif %}>{% trans "Single with 2 dependents" %}</option>
+              <option value="S3" {% if employee.ph_tax_status == 'S3' %}selected{% endif %}>{% trans "Single with 3 dependents" %}</option>
+              <option value="S4" {% if employee.ph_tax_status == 'S4' %}selected{% endif %}>{% trans "Single with 4+ dependents" %}</option>
+              <option value="ME1" {% if employee.ph_tax_status == 'ME1' %}selected{% endif %}>{% trans "Married with 1 dependent" %}</option>
+              <option value="ME2" {% if employee.ph_tax_status == 'ME2' %}selected{% endif %}>{% trans "Married with 2 dependents" %}</option>
+              <option value="ME3" {% if employee.ph_tax_status == 'ME3' %}selected{% endif %}>{% trans "Married with 3 dependents" %}</option>
+              <option value="ME4" {% if employee.ph_tax_status == 'ME4' %}selected{% endif %}>{% trans "Married with 4+ dependents" %}</option>
+            </select>
+            <small class="form-text text-muted">{% trans "Affects monthly withholding tax" %}</small>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="oh-modal__dialog-footer">
+        <button type="button" class="oh-btn oh-btn--secondary" data-dismiss="oh-modal">
+          <ion-icon name="close-outline"></ion-icon>
+          {% trans "Cancel" %}
+        </button>
+        <button type="submit" class="oh-btn oh-btn--primary">
+          <ion-icon name="save-outline"></ion-icon>
+          {% trans "Save Changes" %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Close modal on successful save
+  document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'government_ids_target') {
+      $('.oh-modal--show').removeClass('oh-modal--show');
+    }
+  });
+
+  // Form validation
+  document.getElementById('governmentIdsForm').addEventListener('submit', function(e) {
+    const tin = document.getElementById('id_tin_number').value.trim();
+    const sss = document.getElementById('id_sss_number').value.trim();
+    const philhealth = document.getElementById('id_philhealth_number').value.trim();
+    const pagibig = document.getElementById('id_pagibig_number').value.trim();
+    const region = document.getElementById('id_ph_region').value;
+    
+    if (!tin || !sss || !philhealth || !pagibig || !region) {
+      e.preventDefault();
+      alert('{% trans "Please fill in all required fields marked with *" %}');
+      return false;
+    }
+  });
+</script>

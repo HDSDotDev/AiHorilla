@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BIR Form 2316 - {{ form.employee_name }} ({{ form.year }})</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            margin: 2cm;
+            line-height: 1.4;
+        }
+        h1, h2, h3, h4, h5 { margin: 5px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border: 1px solid #000; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .section-header { background-color: #e0e0e0; padding: 10px; margin: 15px 0 10px 0; font-weight: bold; }
+        .summary { background-color: #f9f9f9; padding: 15px; margin: 15px 0; border: 1px solid #ddd; }
+        .warning { background-color: #fff3cd; }
+        @page { size: A4; margin: 2cm; }
+    </style>
+</head>
+<body>
+    <div class="text-center">
+        <h2>REPUBLIC OF THE PHILIPPINES</h2>
+        <h3>BUREAU OF INTERNAL REVENUE</h3>
+        <h1>CERTIFICATE OF COMPENSATION PAYMENT/TAX WITHHELD</h1>
+        <h4>(BIR FORM NO. 2316)</h4>
+        <p>For Compensation Payment for the Year <strong>{{ form.year }}</strong></p>
+    </div>
+
+    <hr>
+
+    <div class="section-header">PART I - EMPLOYER INFORMATION</div>
+    <table>
+        <tr>
+            <td width="30%"><strong>Employer's Name:</strong></td>
+            <td>{{ form.employer_name }}</td>
+        </tr>
+        <tr>
+            <td><strong>Employer's TIN:</strong></td>
+            <td>{{ form.employer_tin }}</td>
+        </tr>
+        <tr>
+            <td><strong>Employer's Address:</strong></td>
+            <td>{{ form.employer_address }}</td>
+        </tr>
+    </table>
+
+    <div class="section-header">PART II - EMPLOYEE INFORMATION</div>
+    <table>
+        <tr>
+            <td width="30%"><strong>Employee's Name:</strong></td>
+            <td>{{ form.employee_name }}</td>
+        </tr>
+        <tr>
+            <td><strong>Employee's TIN:</strong></td>
+            <td>{{ form.employee_tin }}</td>
+        </tr>
+        <tr>
+            <td><strong>Employee's Address:</strong></td>
+            <td>{{ form.employee_address }}</td>
+        </tr>
+    </table>
+
+    <div class="section-header">PART III - DETAILS OF COMPENSATION INCOME AND TAX WITHHELD</div>
+    
+    <h4>NON-TAXABLE COMPENSATION INCOME</h4>
+    <table>
+        <tr>
+            <td>13th Month Pay and Other Benefits (not exceeding ₱90,000)</td>
+            <td class="text-end" width="25%">₱{{ form.non_taxable_13th_month|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>De Minimis Benefits</td>
+            <td class="text-end">₱{{ form.non_taxable_de_minimis|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>SSS/GSIS/PhilHealth/Pag-IBIG Contributions (Employee Share)</td>
+            <td class="text-end">₱{{ form.non_taxable_sss|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Other Non-Taxable Compensation</td>
+            <td class="text-end">₱{{ form.non_taxable_salaries|floatformat:2 }}</td>
+        </tr>
+        <tr class="fw-bold">
+            <td>TOTAL NON-TAXABLE COMPENSATION</td>
+            <td class="text-end">₱{{ form.total_non_taxable|floatformat:2 }}</td>
+        </tr>
+    </table>
+
+    <h4>TAXABLE COMPENSATION INCOME</h4>
+    <table>
+        <tr>
+            <td>Basic Salary</td>
+            <td class="text-end" width="25%">₱{{ form.taxable_basic_salary|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>13th Month Pay and Other Benefits (exceeding ₱90,000)</td>
+            <td class="text-end">₱{{ form.taxable_13th_month|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Other Taxable Benefits</td>
+            <td class="text-end">₱{{ form.taxable_other_benefits|floatformat:2 }}</td>
+        </tr>
+        <tr class="fw-bold">
+            <td>TOTAL TAXABLE COMPENSATION</td>
+            <td class="text-end">₱{{ form.total_taxable|floatformat:2 }}</td>
+        </tr>
+    </table>
+
+    <h4>EXEMPTIONS</h4>
+    <table>
+        <tr>
+            <td>Personal Exemption</td>
+            <td class="text-end" width="25%">₱{{ form.personal_exemption|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Additional Exemption (Dependents)</td>
+            <td class="text-end">₱{{ form.additional_exemption|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Premium Paid on Health/Hospital Insurance</td>
+            <td class="text-end">₱{{ form.premium_paid|floatformat:2 }}</td>
+        </tr>
+        <tr class="fw-bold">
+            <td>NET TAXABLE COMPENSATION INCOME</td>
+            <td class="text-end">₱{{ form.net_taxable_compensation|floatformat:2 }}</td>
+        </tr>
+    </table>
+
+    <h4>TAX WITHHELD</h4>
+    <table>
+        <tr>
+            <td>Tax Withheld (January to November)</td>
+            <td class="text-end" width="25%">₱{{ form.tax_withheld_jan_to_nov|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Tax Withheld (December / Adjustment)</td>
+            <td class="text-end">₱{{ form.tax_withheld_december|floatformat:2 }}</td>
+        </tr>
+        <tr class="fw-bold warning">
+            <td>TOTAL TAX WITHHELD</td>
+            <td class="text-end">₱{{ form.tax_withheld_total|floatformat:2 }}</td>
+        </tr>
+    </table>
+
+    <div class="summary">
+        <h4>SUMMARY</h4>
+        <table style="border: none;">
+            <tr style="border: none;">
+                <td style="border: none; width: 50%;"><strong>Gross Compensation:</strong></td>
+                <td style="border: none; text-align: right;">₱{{ form.gross_compensation|floatformat:2 }}</td>
+            </tr>
+            <tr style="border: none;">
+                <td style="border: none;"><strong>Total Non-Taxable:</strong></td>
+                <td style="border: none; text-align: right;">₱{{ form.total_non_taxable|floatformat:2 }}</td>
+            </tr>
+            <tr style="border: none;">
+                <td style="border: none;"><strong>Total Taxable:</strong></td>
+                <td style="border: none; text-align: right;">₱{{ form.total_taxable|floatformat:2 }}</td>
+            </tr>
+            <tr style="border: none;">
+                <td style="border: none;"><strong>Total Exemptions:</strong></td>
+                <td style="border: none; text-align: right;">₱{{ form.personal_exemption|add:form.additional_exemption|floatformat:2 }}</td>
+            </tr>
+            <tr style="border: none;">
+                <td style="border: none;"><strong>Net Taxable Compensation:</strong></td>
+                <td style="border: none; text-align: right;">₱{{ form.net_taxable_compensation|floatformat:2 }}</td>
+            </tr>
+            <tr style="border: none;">
+                <td style="border: none;"><strong>Total Tax Withheld:</strong></td>
+                <td style="border: none; text-align: right; color: red;"><strong>₱{{ form.tax_withheld_total|floatformat:2 }}</strong></td>
+            </tr>
+        </table>
+    </div>
+
+    <hr>
+
+    <p style="font-size: 9pt; color: #666;">
+        <strong>Note:</strong> This is a system-generated certificate. Please verify all information and consult with your HR/Payroll department for any discrepancies.
+    </p>
+    <p style="font-size: 9pt; color: #666;">
+        Generated on: {{ form.generated_date|date:"F d, Y h:i A" }}
+    </p>
+</body>
+</html>

@@ -417,6 +417,80 @@ def about_tab(request, obj_id, **kwargs):
 
 @login_required
 @hx_request_required
+def government_ids_tab(request, obj_id):
+    """
+    This method displays the government IDs tab for Philippines payroll.
+    Shows TIN, SSS, PhilHealth, Pag-IBIG numbers and regional assignment.
+    """
+    employee = Employee.objects.get(id=obj_id)
+    return render(
+        request,
+        "tabs/government_ids_tab.html",
+        {
+            "employee": employee,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def employee_update_government_ids(request, obj_id):
+    """
+    This method handles updating government IDs for Philippines payroll.
+    GET: Shows the form
+    POST: Saves the data
+    """
+    from payroll.models.country_models import PhilippinesRegion
+    
+    employee = Employee.objects.get(id=obj_id)
+    
+    # Check permissions - employee can edit own data, or user needs change_employee permission
+    if request.user != employee.employee_user_id and not request.user.has_perm('employee.change_employee'):
+        messages.error(request, _("You don't have permission to edit this employee's information"))
+        return redirect('view-my-profile')
+    
+    if request.method == 'POST':
+        # Update employee fields
+        employee.tin_number = request.POST.get('tin_number', '').strip()
+        employee.sss_number = request.POST.get('sss_number', '').strip()
+        employee.philhealth_number = request.POST.get('philhealth_number', '').strip()
+        employee.pagibig_number = request.POST.get('pagibig_number', '').strip()
+        employee.ph_tax_status = request.POST.get('ph_tax_status', 'S')
+        
+        # Update region if provided
+        region_id = request.POST.get('ph_region')
+        if region_id:
+            try:
+                employee.ph_region = PhilippinesRegion.objects.get(id=region_id)
+            except PhilippinesRegion.DoesNotExist:
+                pass
+        
+        employee.save()
+        messages.success(request, _("Government IDs updated successfully"))
+        
+        # Return updated tab content
+        return render(
+            request,
+            "tabs/government_ids_tab.html",
+            {
+                "employee": employee,
+            },
+        )
+    
+    # GET - show form
+    regions = PhilippinesRegion.objects.all().order_by('region_code')
+    return render(
+        request,
+        "tabs/forms/government_ids_form.html",
+        {
+            "employee": employee,
+            "regions": regions,
+        },
+    )
+
+
+@login_required
+@hx_request_required
 @owner_can_enter("perms.employee.view_employee", Employee)
 def shift_tab(request, emp_id):
     """

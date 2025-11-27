@@ -1,0 +1,175 @@
+{% extends 'index.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-list-check"></i> {{ title }}</h2>
+                <a href="{% url 'philippines-government-forms-generator' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Generate New Form
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <form method="GET" class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="form_type" class="form-label">Form Type</label>
+                            <select name="form_type" id="form_type" class="form-select">
+                                <option value="">All Forms</option>
+                                {% for value, label in form_types %}
+                                    <option value="{{ value }}" {% if request.GET.form_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="year" class="form-label">Year</label>
+                            <select name="year" id="year" class="form-select">
+                                <option value="">All Years</option>
+                                <option value="2020" {% if request.GET.year == "2020" %}selected{% endif %}>2020</option>
+                                <option value="2021" {% if request.GET.year == "2021" %}selected{% endif %}>2021</option>
+                                <option value="2022" {% if request.GET.year == "2022" %}selected{% endif %}>2022</option>
+                                <option value="2023" {% if request.GET.year == "2023" %}selected{% endif %}>2023</option>
+                                <option value="2024" {% if request.GET.year == "2024" %}selected{% endif %}>2024</option>
+                                <option value="2025" {% if request.GET.year == "2025" %}selected{% endif %}>2025</option>
+                                <option value="2026" {% if request.GET.year == "2026" %}selected{% endif %}>2026</option>
+                                <option value="2027" {% if request.GET.year == "2027" %}selected{% endif %}>2027</option>
+                                <option value="2028" {% if request.GET.year == "2028" %}selected{% endif %}>2028</option>
+                                <option value="2029" {% if request.GET.year == "2029" %}selected{% endif %}>2029</option>
+                                <option value="2030" {% if request.GET.year == "2030" %}selected{% endif %}>2030</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="is_submitted" class="form-label">Status</label>
+                            <select name="is_submitted" id="is_submitted" class="form-select">
+                                <option value="">All</option>
+                                <option value="true" {% if request.GET.is_submitted == "true" %}selected{% endif %}>Submitted</option>
+                                <option value="false" {% if request.GET.is_submitted == "false" %}selected{% endif %}>Not Submitted</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search"></i> Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Forms Table -->
+    <div class="row">
+        <div class="col-12">
+            {% if forms %}
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Form Type</th>
+                                        <th>Period</th>
+                                        <th>Employees</th>
+                                        <th>Employee Share</th>
+                                        <th>Employer Share</th>
+                                        <th>EC</th>
+                                        <th>Grand Total</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for form in forms %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ form.get_form_type_display }}</span>
+                                        </td>
+                                        <td>{{ form.get_period_display_text }}</td>
+                                        <td>{{ form.total_employees }}</td>
+                                        <td>₱{{ form.total_employee_contribution|floatformat:2 }}</td>
+                                        <td>₱{{ form.total_employer_contribution|floatformat:2 }}</td>
+                                        <td>
+                                            {% if form.form_type == 'sss_r3' %}
+                                                ₱{{ form.total_ec_contribution|floatformat:2 }}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="fw-bold text-success">₱{{ form.grand_total|floatformat:2 }}</td>
+                                        <td>
+                                            {% if form.is_submitted %}
+                                                <span class="badge bg-success">Submitted</span><br>
+                                                <small class="text-muted">{{ form.submission_date|date:"M d, Y" }}</small>
+                                            {% else %}
+                                                <span class="badge bg-warning">Pending</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'philippines-government-forms-view' form.pk %}" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-eye"></i> View
+                                            </a>
+                                            <a href="{% url 'philippines-government-forms-export-excel' form.pk %}" class="btn btn-sm btn-success">
+                                                <i class="bi bi-file-excel"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if page_obj.has_other_pages %}
+                        <nav>
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.form_type %}&form_type={{ request.GET.form_type }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.is_submitted %}&is_submitted={{ request.GET.is_submitted }}{% endif %}">Previous</a>
+                                </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.form_type %}&form_type={{ request.GET.form_type }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.is_submitted %}&is_submitted={{ request.GET.is_submitted }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.form_type %}&form_type={{ request.GET.form_type }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.is_submitted %}&is_submitted={{ request.GET.is_submitted }}{% endif %}">Next</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <h4><i class="bi bi-info-circle"></i> No Forms Found</h4>
+                    <p>No government remittance forms match your filters. Try adjusting your search criteria or generate a new form.</p>
+                    <a href="{% url 'philippines-government-forms-generator' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Generate New Form
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

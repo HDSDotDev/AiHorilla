@@ -14,13 +14,14 @@ def default_currency(request):
     """
     This method will return the currency
     """
-    # Check active country config
+    # Check active country config (middleware returns dict, not object)
     active_country = getattr(request, 'payroll_country', None)
     
     # Set currency based on active country
     default_symbol = "$"
-    if active_country and active_country.country == 'PH':
-        default_symbol = "₱"
+    if active_country and isinstance(active_country, dict):
+        if active_country.get('country') == 'PH':
+            default_symbol = "₱"
     
     if models.PayrollSettings.objects.first() is None:
         settings = models.PayrollSettings()
@@ -41,10 +42,16 @@ def active_payroll_country(request):
     This method will return the active payroll country configuration
     """
     active_country = getattr(request, 'payroll_country', None)
+    
+    # Middleware returns dict, not object - access via .get()
+    country_code = None
+    if active_country and isinstance(active_country, dict):
+        country_code = active_country.get('country')
+    
     return {
         "active_payroll_country": active_country,
-        "is_philippines_payroll": active_country and active_country.country == 'PH',
-        "is_usa_payroll": active_country and active_country.country == 'USA',
+        "is_philippines_payroll": country_code == 'PH',
+        "is_usa_payroll": country_code == 'USA',
     }
 
 

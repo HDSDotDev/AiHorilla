@@ -1,0 +1,212 @@
+{% extends 'index.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-calculator-fill"></i> {{ title }}</h2>
+                <div>
+                    <a href="{% url 'philippines-final-pay-list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-list"></i> View All Records
+                    </a>
+                    <span class="badge bg-warning fs-6">Deadline: {{ deadline }}</span>
+                </div>
+            </div>
+            <p class="text-muted">
+                Calculate final pay for separating employees including unpaid salary, pro-rated 13th month, 
+                leave conversion, and separation pay (if applicable).
+            </p>
+        </div>
+    </div>
+
+    <!-- Calculator Form -->
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Employee Selection -->
+            <div class="col-md-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-person"></i> Employee Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="employee_id" class="form-label">Employee <span class="text-danger">*</span></label>
+                                <select name="employee_id" id="employee_id" class="form-select" required>
+                                    <option value="">-- Select Employee --</option>
+                                    {% for emp in employees %}
+                                    <option value="{{ emp.id }}">{{ emp.get_full_name }} ({{ emp.badge_id|default:"No ID" }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="separation_date" class="form-label">Separation Date <span class="text-danger">*</span></label>
+                                <input type="date" name="separation_date" id="separation_date" class="form-control" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="last_payroll_date" class="form-label">Last Payroll Date <span class="text-danger">*</span></label>
+                                <input type="date" name="last_payroll_date" id="last_payroll_date" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="separation_reason" class="form-label">Separation Reason <span class="text-danger">*</span></label>
+                                <select name="separation_reason" id="separation_reason" class="form-select" required>
+                                    <option value="">-- Select Reason --</option>
+                                    {% for value, label in separation_reasons %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">
+                                    <strong>Note:</strong> Separation pay applies only for: Retrenchment, Redundancy, Illness, Closure
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work Days -->
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Unpaid Work Days</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="unpaid_days" class="form-label">Days Worked After Last Payroll <span class="text-danger">*</span></label>
+                            <input type="number" name="unpaid_days" id="unpaid_days" class="form-control" 
+                                   min="0" step="0.01" value="0" required>
+                            <small class="text-muted">
+                                Calculate days from last payroll end date to separation date
+                            </small>
+                        </div>
+                        <div class="alert alert-info mb-0">
+                            <strong>Daily Rate Formula:</strong><br>
+                            (Monthly Salary × 12) ÷ 261 working days
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Balances -->
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-calendar-x"></i> Unused Leave Credits</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="unused_vacation_days" class="form-label">Unused Vacation Leave (days)</label>
+                            <input type="number" name="unused_vacation_days" id="unused_vacation_days" 
+                                   class="form-control" min="0" step="0.5" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="unused_sick_days" class="form-label">Unused Sick Leave (days)</label>
+                            <input type="number" name="unused_sick_days" id="unused_sick_days" 
+                                   class="form-control" min="0" step="0.5" value="0">
+                        </div>
+                        <small class="text-muted">
+                            Converted to cash at daily rate
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deductions -->
+            <div class="col-md-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Deductions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="unpaid_loans" class="form-label">Unpaid Loans/Advances (₱)</label>
+                                <input type="number" name="unpaid_loans" id="unpaid_loans" 
+                                       class="form-control" min="0" step="0.01" value="0">
+                                <small class="text-muted">Outstanding loan balance</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="other_deductions" class="form-label">Other Deductions (₱)</label>
+                                <input type="number" name="other_deductions" id="other_deductions" 
+                                       class="form-control" min="0" step="0.01" value="0">
+                                <small class="text-muted">Equipment, damages, etc.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-calculator"></i> Calculate Final Pay
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Information Panel -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Final Pay Components</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Inclusions:</h6>
+                            <ul>
+                                <li><strong>Unpaid Salary:</strong> Days worked after last payroll</li>
+                                <li><strong>Pro-Rated 13th Month Pay:</strong> Total basic YTD ÷ 12</li>
+                                <li><strong>Leave Conversion:</strong> Unused vacation & sick leave</li>
+                                <li><strong>Separation Pay:</strong> If applicable (see reasons)</li>
+                                <li><strong>Tax Adjustment:</strong> YTD tax reconciliation</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Separation Pay Entitlement:</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Reason</th>
+                                        <th>Rate</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Retrenchment/Redundancy/Closure</td>
+                                        <td>1 month salary per year</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Illness (not job-related)</td>
+                                        <td>0.5 month salary per year</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Resignation/Retirement/Termination</td>
+                                        <td>None</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <strong>Important:</strong> Final pay must be released within 30 days from separation date 
+                        or upon clearance completion. All amounts are subject to final tax computation.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

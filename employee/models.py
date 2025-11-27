@@ -101,6 +101,66 @@ class Employee(models.Model):
     emergency_contact = models.CharField(max_length=15, null=True, blank=True)
     emergency_contact_name = models.CharField(max_length=20, null=True, blank=True)
     emergency_contact_relation = models.CharField(max_length=20, null=True, blank=True)
+    
+    # Philippines Payroll Fields
+    tin_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("TIN (Tax Identification Number)"),
+        help_text=_("BIR Tax Identification Number (e.g., 123-456-789-000)")
+    )
+    sss_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("SSS Number"),
+        help_text=_("Social Security System number (e.g., 01-2345678-9)")
+    )
+    philhealth_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("PhilHealth Number"),
+        help_text=_("PhilHealth ID number (e.g., 12-345678901-2)")
+    )
+    pagibig_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name=_("Pag-IBIG Number"),
+        help_text=_("Pag-IBIG MID number (e.g., 1234-5678-9012)")
+    )
+    ph_region = models.ForeignKey(
+        "payroll.PhilippinesRegion",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        verbose_name=_("Philippines Region"),
+        help_text=_("Region for minimum wage and COLA calculation"),
+        related_name="employees"
+    )
+    ph_tax_status = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True,
+        choices=[
+            ('S', _('Single')),
+            ('ME', _('Married Employee')),
+            ('S1', _('Single with 1 dependent')),
+            ('S2', _('Single with 2 dependents')),
+            ('S3', _('Single with 3 dependents')),
+            ('S4', _('Single with 4 or more dependents')),
+            ('ME1', _('Married Employee with 1 dependent')),
+            ('ME2', _('Married Employee with 2 dependents')),
+            ('ME3', _('Married Employee with 3 dependents')),
+            ('ME4', _('Married Employee with 4 or more dependents')),
+        ],
+        default='S',
+        verbose_name=_("Tax Withholding Status"),
+        help_text=_("BIR withholding tax exemption status")
+    )
+    
     is_active = models.BooleanField(default=True)
     additional_info = models.JSONField(null=True, blank=True)
     is_from_onboarding = models.BooleanField(

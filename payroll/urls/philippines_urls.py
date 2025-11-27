@@ -53,4 +53,79 @@ urlpatterns = [
         philippines_views.philippines_cola,
         name='philippines-cola'
     ),
+    # BIR Form 2316 - Certificate of Compensation Payment/Tax Withheld
+    path(
+        'philippines/bir-form-2316/',
+        philippines_views.bir_form_2316_list,
+        name='philippines-bir-form-2316-list'
+    ),
+    path(
+        'philippines/bir-form-2316/generate/',
+        philippines_views.bir_form_2316_generate,
+        name='philippines-bir-form-2316-generate'
+    ),
+    path(
+        'philippines/bir-form-2316/generate/<int:year>/',
+        philippines_views.bir_form_2316_generate,
+        name='philippines-bir-form-2316-generate-year'
+    ),
+    path(
+        'philippines/bir-form-2316/<int:pk>/',
+        philippines_views.bir_form_2316_view,
+        name='philippines-bir-form-2316-view'
+    ),
+    # BIR Alphalist Export
+    path(
+        'philippines/bir-alphalist-export/',
+        philippines_views.bir_alphalist_export,
+        name='philippines-bir-alphalist-export'
+    ),
+    # 13th Month Pay Generator
+    path(
+        'philippines/thirteenth-month-generator/',
+        philippines_views.thirteenth_month_generator,
+        name='philippines-thirteenth-month-generator'
+    ),
+    path(
+        'philippines/thirteenth-month-results/',
+        philippines_views.thirteenth_month_results,
+        name='philippines-thirteenth-month-results'
+    ),
+    # Final Pay Calculator
+    path(
+        'philippines/final-pay-calculator/',
+        philippines_views.final_pay_calculator,
+        name='philippines-final-pay-calculator'
+    ),
+    path(
+        'philippines/final-pay-list/',
+        philippines_views.final_pay_list,
+        name='philippines-final-pay-list'
+    ),
+    path(
+        'philippines/final-pay/<int:pk>/',
+        philippines_views.final_pay_view,
+        name='philippines-final-pay-view'
+    ),
+    # Government Forms
+    path(
+        'philippines/government-forms-generator/',
+        philippines_views.government_forms_generator,
+        name='philippines-government-forms-generator'
+    ),
+    path(
+        'philippines/government-forms-list/',
+        philippines_views.government_forms_list,
+        name='philippines-government-forms-list'
+    ),
+    path(
+        'philippines/government-forms/<int:pk>/',
+        philippines_views.government_forms_view,
+        name='philippines-government-forms-view'
+    ),
+    path(
+        'philippines/government-forms/<int:pk>/export-excel/',
+        philippines_views.government_forms_export_excel,
+        name='philippines-government-forms-export-excel'
+    ),
 ]

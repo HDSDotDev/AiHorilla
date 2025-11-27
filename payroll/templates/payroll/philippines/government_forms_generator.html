@@ -1,0 +1,151 @@
+{% extends 'index.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-file-earmark-text"></i> {{ title }}</h2>
+                <a href="{% url 'philippines-government-forms-list' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-list"></i> View All Forms
+                </a>
+            </div>
+            <p class="text-muted">
+                Generate monthly remittance forms for SSS, PhilHealth, and Pag-IBIG contributions.
+            </p>
+        </div>
+    </div>
+
+    <!-- Generator Form -->
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Form Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="form_type" class="form-label">Form Type <span class="text-danger">*</span></label>
+                            <select name="form_type" id="form_type" class="form-select" required>
+                                <option value="">-- Select Form Type --</option>
+                                {% for value, label in form_types %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <strong>SSS R3:</strong> Collection List for monthly SSS contributions<br>
+                                <strong>PhilHealth RF-1:</strong> Premium Remittance Form for PhilHealth<br>
+                                <strong>Pag-IBIG MCRF:</strong> Member Contribution Remittance Form
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <label for="year" class="form-label">Year <span class="text-danger">*</span></label>
+                                <select name="year" id="year" class="form-select" required>
+                                    <option value="2020" {% if "2020" == current_year|stringformat:"s" %}selected{% endif %}>2020</option>
+                                    <option value="2021" {% if "2021" == current_year|stringformat:"s" %}selected{% endif %}>2021</option>
+                                    <option value="2022" {% if "2022" == current_year|stringformat:"s" %}selected{% endif %}>2022</option>
+                                    <option value="2023" {% if "2023" == current_year|stringformat:"s" %}selected{% endif %}>2023</option>
+                                    <option value="2024" {% if "2024" == current_year|stringformat:"s" %}selected{% endif %}>2024</option>
+                                    <option value="2025" {% if "2025" == current_year|stringformat:"s" %}selected{% endif %}>2025</option>
+                                    <option value="2026" {% if "2026" == current_year|stringformat:"s" %}selected{% endif %}>2026</option>
+                                    <option value="2027" {% if "2027" == current_year|stringformat:"s" %}selected{% endif %}>2027</option>
+                                    <option value="2028" {% if "2028" == current_year|stringformat:"s" %}selected{% endif %}>2028</option>
+                                    <option value="2029" {% if "2029" == current_year|stringformat:"s" %}selected{% endif %}>2029</option>
+                                    <option value="2030" {% if "2030" == current_year|stringformat:"s" %}selected{% endif %}>2030</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <label for="month" class="form-label">Month <span class="text-danger">*</span></label>
+                                <select name="month" id="month" class="form-select" required>
+                                    <option value="1" {% if current_month == 1 %}selected{% endif %}>January</option>
+                                    <option value="2" {% if current_month == 2 %}selected{% endif %}>February</option>
+                                    <option value="3" {% if current_month == 3 %}selected{% endif %}>March</option>
+                                    <option value="4" {% if current_month == 4 %}selected{% endif %}>April</option>
+                                    <option value="5" {% if current_month == 5 %}selected{% endif %}>May</option>
+                                    <option value="6" {% if current_month == 6 %}selected{% endif %}>June</option>
+                                    <option value="7" {% if current_month == 7 %}selected{% endif %}>July</option>
+                                    <option value="8" {% if current_month == 8 %}selected{% endif %}>August</option>
+                                    <option value="9" {% if current_month == 9 %}selected{% endif %}>September</option>
+                                    <option value="10" {% if current_month == 10 %}selected{% endif %}>October</option>
+                                    <option value="11" {% if current_month == 11 %}selected{% endif %}>November</option>
+                                    <option value="12" {% if current_month == 12 %}selected{% endif %}>December</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-file-earmark-plus"></i> Generate Form
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information Cards -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> SSS Form R3</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Purpose:</strong> Collection List for monthly SSS remittance</p>
+                    <p><strong>Deadline:</strong> 10th day of the following month</p>
+                    <p><strong>Includes:</strong> Employee share, Employer share, EC contribution</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> PhilHealth RF-1</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Purpose:</strong> Premium Remittance Form for PhilHealth</p>
+                    <p><strong>Deadline:</strong> 10th day of the following month</p>
+                    <p><strong>Includes:</strong> Employee premium, Employer premium</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Pag-IBIG MCRF</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Purpose:</strong> Member Contribution Remittance Form</p>
+                    <p><strong>Deadline:</strong> 10th day of the following month</p>
+                    <p><strong>Includes:</strong> Employee share, Employer counterpart</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Important Notes -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h5><i class="bi bi-exclamation-triangle"></i> Important Reminders</h5>
+                <ul class="mb-0">
+                    <li>All government contributions must be remitted by the <strong>10th day</strong> of the following month</li>
+                    <li>Late payments incur penalties: 3% per month for SSS, 2% per month for PhilHealth and Pag-IBIG</li>
+                    <li>Ensure all employee ID numbers (SSS, PhilHealth, Pag-IBIG) are up-to-date</li>
+                    <li>Double-check totals before submission to avoid discrepancies</li>
+                    <li>Keep copies of remittance forms for audit purposes (5 years minimum)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

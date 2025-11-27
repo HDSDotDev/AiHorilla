@@ -1,0 +1,290 @@
+{% extends 'index.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-file-text"></i> {{ title }}</h2>
+                <div>
+                    <a href="{% url 'philippines-final-pay-list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </a>
+                    <button onclick="window.print()" class="btn btn-secondary">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+                    {% if not final_pay.is_paid %}
+                    <form method="POST" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="mark_paid">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> Mark as Paid
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Info -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5><i class="bi bi-person-badge"></i> Employee Information</h5>
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td><strong>Name:</strong></td>
+                            <td>{{ final_pay.employee.get_full_name }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Employee ID:</strong></td>
+                            <td>{{ final_pay.employee.badge_id|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Separation Date:</strong></td>
+                            <td>{{ final_pay.separation_date|date:"F d, Y" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Separation Reason:</strong></td>
+                            <td><span class="badge bg-secondary">{{ final_pay.get_separation_reason_display }}</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5><i class="bi bi-info-circle"></i> Calculation Details</h5>
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td><strong>Years of Service:</strong></td>
+                            <td>{{ final_pay.years_of_service }} years</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Monthly Salary:</strong></td>
+                            <td>₱{{ final_pay.monthly_salary|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Daily Rate:</strong></td>
+                            <td>₱{{ final_pay.daily_rate|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Calculated By:</strong></td>
+                            <td>{{ final_pay.calculated_by.get_full_name|default:"System" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Calculation Date:</strong></td>
+                            <td>{{ final_pay.calculation_date|date:"F d, Y g:i A" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Final Pay Breakdown -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Final Pay Computation</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Component</th>
+                                <th>Details</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Unpaid Salary -->
+                            <tr>
+                                <td><strong>1. Unpaid Salary</strong></td>
+                                <td>{{ final_pay.unpaid_days }} days × ₱{{ final_pay.daily_rate|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ final_pay.unpaid_salary|floatformat:2 }}</td>
+                            </tr>
+                            
+                            <!-- 13th Month -->
+                            <tr>
+                                <td><strong>2. Pro-Rated 13th Month Pay</strong></td>
+                                <td>
+                                    ₱{{ final_pay.total_basic_ytd|floatformat:2 }} (YTD) ÷ 12<br>
+                                    <small class="text-muted">{{ final_pay.months_worked }} months worked this year</small>
+                                </td>
+                                <td class="text-end">₱{{ final_pay.prorated_13th_month|floatformat:2 }}</td>
+                            </tr>
+                            
+                            <!-- Leave Conversion -->
+                            <tr>
+                                <td><strong>3. Leave Credits Conversion</strong></td>
+                                <td>
+                                    Vacation: {{ final_pay.unused_vacation_days }} days<br>
+                                    Sick: {{ final_pay.unused_sick_days }} days<br>
+                                    <small class="text-muted">Total: {{ final_pay.unused_vacation_days|add:final_pay.unused_sick_days }} days × ₱{{ final_pay.daily_rate|floatformat:2 }}</small>
+                                </td>
+                                <td class="text-end">₱{{ final_pay.leave_conversion_amount|floatformat:2 }}</td>
+                            </tr>
+                            
+                            <!-- Separation Pay -->
+                            <tr>
+                                <td><strong>4. Separation Pay</strong></td>
+                                <td>
+                                    {% if final_pay.is_entitled_to_separation_pay %}
+                                        {% if final_pay.separation_reason == 'illness' %}
+                                            ₱{{ final_pay.monthly_salary|floatformat:2 }} × 0.5 × {{ final_pay.years_of_service }} years
+                                        {% else %}
+                                            ₱{{ final_pay.monthly_salary|floatformat:2 }} × {{ final_pay.years_of_service }} years
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Not applicable for {{ final_pay.get_separation_reason_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">₱{{ final_pay.separation_pay|floatformat:2 }}</td>
+                            </tr>
+                            
+                            <!-- Gross -->
+                            <tr class="table-success fw-bold">
+                                <td colspan="2"><strong>GROSS FINAL PAY</strong></td>
+                                <td class="text-end">₱{{ final_pay.gross_final_pay|floatformat:2 }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deductions -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="bi bi-dash-circle"></i> Less: Deductions</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Deduction</th>
+                                <th>Details</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Unpaid Loans/Advances</strong></td>
+                                <td>Outstanding balance</td>
+                                <td class="text-end">₱{{ final_pay.unpaid_loans|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Other Deductions</strong></td>
+                                <td>Equipment, damages, etc.</td>
+                                <td class="text-end">₱{{ final_pay.other_deductions|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Tax Adjustment</strong></td>
+                                <td>
+                                    YTD Tax Withheld: ₱{{ final_pay.ytd_tax_withheld|floatformat:2 }}<br>
+                                    Final Tax Due: ₱{{ final_pay.final_tax_due|floatformat:2 }}
+                                    {% if final_pay.tax_adjustment > 0 %}
+                                        <br><span class="badge bg-success">Refund</span>
+                                    {% elif final_pay.tax_adjustment < 0 %}
+                                        <br><span class="badge bg-danger">Additional Tax</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if final_pay.tax_adjustment < 0 %}
+                                        ₱{{ final_pay.tax_adjustment|floatformat:2 }}
+                                    {% else %}
+                                        -₱{{ final_pay.tax_adjustment|floatformat:2 }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr class="table-warning fw-bold">
+                                <td colspan="2"><strong>TOTAL DEDUCTIONS</strong></td>
+                                <td class="text-end">₱{{ final_pay.total_deductions|floatformat:2 }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Net Final Pay -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="bi bi-wallet2"></i> NET FINAL PAY</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h2 class="text-success mb-0">₱{{ final_pay.net_final_pay|floatformat:2 }}</h2>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            {% if final_pay.is_paid %}
+                                <span class="badge bg-success fs-5">
+                                    <i class="bi bi-check-circle"></i> PAID on {{ final_pay.payment_date|date:"F d, Y" }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger fs-5">
+                                    <i class="bi bi-x-circle"></i> UNPAID
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes -->
+    {% if final_pay.notes %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-sticky"></i> Notes</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ final_pay.notes|linebreaks }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer Info -->
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6><i class="bi bi-info-circle"></i> Important Reminders</h6>
+                <ul class="mb-0">
+                    <li>Final pay must be released within <strong>30 days</strong> from separation or clearance completion</li>
+                    <li>Employee must sign clearance form and return all company property</li>
+                    <li>BIR Form 2316 (Certificate of Compensation) must be issued within 30 days</li>
+                    <li>All government contributions must be remitted properly</li>
+                    <li>Keep copy of this computation for audit purposes</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .alert { display: none !important; }
+    .card { border: 1px solid #000 !important; page-break-inside: avoid; }
+}
+</style>
+{% endblock %}

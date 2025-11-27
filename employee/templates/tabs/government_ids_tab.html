@@ -1,0 +1,200 @@
+{% load i18n %}
+{% load static %}
+
+<style>
+  .gov-id-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .gov-id-section {
+    margin-bottom: 30px;
+  }
+  .gov-id-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  .gov-id-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .gov-id-label {
+    font-weight: 500;
+    color: #666;
+    flex: 1;
+  }
+  .gov-id-value {
+    flex: 2;
+    color: #333;
+    font-weight: 500;
+  }
+  .gov-id-empty {
+    color: #999;
+    font-style: italic;
+  }
+  .gov-id-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #007bff;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.3s;
+  }
+  .gov-id-edit-btn:hover {
+    background: #0056b3;
+    color: white;
+  }
+  .gov-id-warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 4px;
+  }
+  .gov-id-warning-icon {
+    color: #ffc107;
+    font-size: 24px;
+    vertical-align: middle;
+    margin-right: 10px;
+  }
+</style>
+
+<div class="gov-id-card">
+  {% if not employee.tin_number and not employee.sss_number and not employee.philhealth_number and not employee.pagibig_number %}
+  <div class="gov-id-warning">
+    <ion-icon name="warning" class="gov-id-warning-icon"></ion-icon>
+    <strong>{% trans "Government IDs Required" %}:</strong>
+    {% trans "Please add your government identification numbers to enable payroll processing. These are required for tax and statutory deductions." %}
+  </div>
+  {% endif %}
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>{% trans "Government Identification Numbers" %}</h3>
+    {% if perms.employee.change_employee or employee.employee_user_id == request.user %}
+    <a href="{% url 'employee-update-government-ids' employee.id %}" class="gov-id-edit-btn" hx-get="{% url 'employee-update-government-ids' employee.id %}" hx-target="#government_ids_target">
+      <ion-icon name="create-outline"></ion-icon>
+      {% trans "Edit IDs" %}
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Philippines Tax & Statutory -->
+  <div class="gov-id-section">
+    <div class="gov-id-title">
+      <ion-icon name="document-text-outline"></ion-icon>
+      {% trans "Philippines Tax & Social Security" %}
+    </div>
+
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "TIN (Tax Identification Number)" %}:</span>
+      <span class="gov-id-value">
+        {% if employee.tin_number %}
+          {{ employee.tin_number }}
+        {% else %}
+          <span class="gov-id-empty">{% trans "Not provided" %}</span>
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "SSS Number" %}:</span>
+      <span class="gov-id-value">
+        {% if employee.sss_number %}
+          {{ employee.sss_number }}
+        {% else %}
+          <span class="gov-id-empty">{% trans "Not provided" %}</span>
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "PhilHealth Number" %}:</span>
+      <span class="gov-id-value">
+        {% if employee.philhealth_number %}
+          {{ employee.philhealth_number }}
+        {% else %}
+          <span class="gov-id-empty">{% trans "Not provided" %}</span>
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "Pag-IBIG Number" %}:</span>
+      <span class="gov-id-value">
+        {% if employee.pagibig_number %}
+          {{ employee.pagibig_number }}
+        {% else %}
+          <span class="gov-id-empty">{% trans "Not provided" %}</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  <!-- Regional Assignment -->
+  <div class="gov-id-section">
+    <div class="gov-id-title">
+      <ion-icon name="location-outline"></ion-icon>
+      {% trans "Regional Assignment" %}
+    </div>
+
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "Philippines Region" %}:</span>
+      <span class="gov-id-value">
+        {% if employee.ph_region %}
+          {{ employee.ph_region.region_name }} ({{ employee.ph_region.region_code }})
+        {% else %}
+          <span class="gov-id-empty">{% trans "Not assigned" %}</span>
+        {% endif %}
+      </span>
+    </div>
+
+    {% if employee.ph_region %}
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "Daily Minimum Wage" %}:</span>
+      <span class="gov-id-value">₱{{ employee.ph_region.daily_minimum_wage }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Tax Information -->
+  <div class="gov-id-section">
+    <div class="gov-id-title">
+      <ion-icon name="calculator-outline"></ion-icon>
+      {% trans "Tax Withholding Information" %}
+    </div>
+
+    <div class="gov-id-field">
+      <span class="gov-id-label">{% trans "Tax Withholding Status" %}:</span>
+      <span class="gov-id-value">
+        {% if employee.ph_tax_status %}
+          {{ employee.get_ph_tax_status_display }}
+        {% else %}
+          <span class="gov-id-empty">{% trans "Not set (defaults to Single)" %}</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  <!-- Information Notice -->
+  <div class="mt-4 p-3" style="background: #e7f3ff; border-radius: 6px; border-left: 4px solid #007bff;">
+    <p class="mb-2"><strong><ion-icon name="information-circle-outline"></ion-icon> {% trans "Important Information" %}:</strong></p>
+    <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+      <li>{% trans "These government IDs are required for payroll processing in the Philippines" %}</li>
+      <li>{% trans "Your region determines the applicable minimum wage and COLA rates" %}</li>
+      <li>{% trans "Tax withholding status affects your monthly withholding tax computation" %}</li>
+      <li>{% trans "All information is confidential and used only for legal compliance purposes" %}</li>
+    </ul>
+  </div>
+</div>

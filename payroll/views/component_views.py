@@ -5,6 +5,7 @@ This module is used to write methods to the component_urls patterns respectively
 """
 
 import json
+import logging
 import operator
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -14,6 +15,7 @@ from urllib.parse import parse_qs
 import pandas as pd
 from django.apps import apps
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db.models import Sum
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import redirect, render
@@ -24,6 +26,8 @@ from django.views.decorators.cache import never_cache
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
+
+logger = logging.getLogger(__name__)
 
 from base.backends import ConfiguredEmailBackend
 from base.methods import (
@@ -103,31 +107,94 @@ operator_mapping = {
 }
 
 
-def payroll_calculation(employee, start_date, end_date):
+def payroll_calculation(employee, start_date, end_date, request=None):
     """
     Calculate payroll components for the specified employee within the given date range.
-
 
     Args:
         employee (Employee): The employee for whom the payroll is calculated.
         start_date (date): The start date of the payroll period.
         end_date (date): The end date of the payroll period.
-
+        request (HttpRequest, optional): HTTP request object for accessing cached country config.
 
     Returns:
-        dict: A dictionary containing the calculated payroll components:
+        dict: A dictionary containing the calculated payroll components.
+        
+    Raises:
+        ValidationError: If country config is broken, PH module is missing, or employee data is invalid.
+    
+    CRITICAL: This function enforces country-specific payroll calculations.
+    It will FAIL LOUDLY if Philippines system is active but module is broken.
+    DO NOT silently fall back to USA calculations - this causes legal/compliance issues.
     """
-    
-    # CHECK IF PHILIPPINES IS ACTIVE - USE PHILIPPINES CALCULATOR
+    import logging
+    from django.core.exceptions import ValidationError
     from payroll.models.country_models import PayrollCountryConfig
-    active_country = PayrollCountryConfig.objects.filter(is_active=True).first()
     
-    if active_country and active_country.country == 'PH':
-        # USE PHILIPPINES PAYROLL CALCULATOR - DO NOT FALL BACK TO USA
-        from payroll.methods.philippines_payroll import philippines_payroll_calculation
-        return philippines_payroll_calculation(employee, start_date, end_date)
-
+    logger = logging.getLogger(__name__)
+    
+    # Try to get country from request middleware (avoids DB query and race conditions)
+    if request and hasattr(request, 'payroll_country'):
+        active_country_code = request.payroll_country.get('country')
+        logger.debug(f"Using country from request middleware: {active_country_code}")
+    else:
+        # Fallback to database query if no request provided
+        try:
+            active_country = PayrollCountryConfig.objects.filter(is_active=True).first()
+            active_country_code = active_country.country if active_country else None
+            logger.debug(f"Queried database for active country: {active_country_code}")
+        except Exception as e:
+            logger.critical(f"Failed to query PayrollCountryConfig: {e}", exc_info=True)
+            raise ValidationError(
+                "Payroll system configuration error. Contact system administrator."
+            )
+    
+    # Philippines payroll calculation
+    if active_country_code == 'PH':
+        logger.info(f"Using Philippines payroll calculation for employee {employee.id}")
+        
+        # Import PH module with error handling
+        try:
+            from payroll.methods.philippines_payroll import philippines_payroll_calculation
+        except ImportError as e:
+            logger.critical(
+                f"Philippines payroll module not found! System is configured for PH "
+                f"but module is missing. Error: {e}"
+            )
+            raise ValidationError(
+                "Philippines payroll system is active but the calculation module is not installed. "
+                "Contact your system administrator immediately."
+            )
+        
+        # Validate employee has required PH data
+        try:
+            from payroll.validators import validate_ph_employee_data
+            validate_ph_employee_data(employee)
+        except ImportError:
+            logger.error("payroll.validators module not found - skipping PH employee validation")
+        except ValidationError as e:
+            logger.error(f"Employee {employee.id} missing PH data: {e}")
+            raise ValidationError(
+                f"Cannot calculate payroll for employee {employee.get_full_name()}: {str(e)}"
+            )
+        
+        # Execute PH calculation with error handling
+        try:
+            result = philippines_payroll_calculation(employee, start_date, end_date)
+            logger.info(f"Successfully calculated PH payroll for employee {employee.id}")
+            return result
+        except Exception as e:
+            logger.error(
+                f"Philippines payroll calculation failed for employee {employee.id}: {e}",
+                exc_info=True
+            )
+            raise ValidationError(
+                f"Payroll calculation failed for {employee.get_full_name()}: {str(e)}. "
+                f"Please contact payroll department."
+            )
+    
     # USA PAYROLL CALCULATION (only runs if Philippines is NOT active)
+    logger.info(f"Using USA payroll calculation for employee {employee.id}")
     basic_pay_details = compute_salary_on_period(employee, start_date, end_date)
     contract = basic_pay_details["contract"]
     contract_wage = basic_pay_details["contract_wage"]
@@ -770,9 +837,25 @@ def generate_payslip(request):
                 ).first()
                 if start_date < contract.contract_start_date:
                     start_date = contract.contract_start_date
-                payslip = payroll_calculation(employee, start_date, end_date)
-                payslips.append(payslip)
-                json_data.append(payslip["json_data"])
+                
+                # Handle payroll calculation with error handling
+                try:
+                    payslip = payroll_calculation(employee, start_date, end_date, request)
+                    payslips.append(payslip)
+                    json_data.append(payslip["json_data"])
+                except ValidationError as e:
+                    messages.error(
+                        request,
+                        _(f"Failed to generate payslip for {employee.get_full_name()}: {str(e)}")
+                    )
+                    continue
+                except Exception as e:
+                    logger.error(f"Unexpected error generating payslip for {employee.id}: {e}", exc_info=True)
+                    messages.error(
+                        request,
+                        _(f"Unexpected error generating payslip for {employee.get_full_name()}. Please contact support.")
+                    )
+                    continue
 
                 payslip["payslip"] = payslip
                 data = {}
@@ -900,28 +983,43 @@ def create_payslip(request, new_post_data=None):
                 employee = form.cleaned_data["employee_id"]
                 start_date = form.cleaned_data["start_date"]
                 end_date = form.cleaned_data["end_date"]
-                payslip_data = payroll_calculation(employee, start_date, end_date)
-                payslip_data["payslip"] = payslip
-                data = {}
-                data["employee"] = employee
-                data["start_date"] = payslip_data["start_date"]
-                data["end_date"] = payslip_data["end_date"]
-                data["status"] = (
-                    "draft"
-                    if request.GET.get("status") is None
-                    else request.GET["status"]
-                )
-                data["contract_wage"] = payslip_data["contract_wage"]
-                data["basic_pay"] = payslip_data["basic_pay"]
-                data["gross_pay"] = payslip_data["gross_pay"]
-                data["deduction"] = payslip_data["total_deductions"]
-                data["net_pay"] = payslip_data["net_pay"]
-                data["pay_data"] = json.loads(payslip_data["json_data"])
-                calculate_employer_contribution(data)
-                data["installments"] = payslip_data["installments"]
-                payslip_data["instance"] = save_payslip(**data)
-                form = forms.PayslipForm()
-                messages.success(request, _("Payslip Saved"))
+                
+                # Handle payroll calculation with error handling
+                try:
+                    payslip_data = payroll_calculation(employee, start_date, end_date, request)
+                    payslip_data["payslip"] = payslip
+                    data = {}
+                    data["employee"] = employee
+                    data["start_date"] = payslip_data["start_date"]
+                    data["end_date"] = payslip_data["end_date"]
+                    data["status"] = (
+                        "draft"
+                        if request.GET.get("status") is None
+                        else request.GET["status"]
+                    )
+                    data["contract_wage"] = payslip_data["contract_wage"]
+                    data["basic_pay"] = payslip_data["basic_pay"]
+                    data["gross_pay"] = payslip_data["gross_pay"]
+                    data["deduction"] = payslip_data["total_deductions"]
+                    data["net_pay"] = payslip_data["net_pay"]
+                    data["pay_data"] = json.loads(payslip_data["json_data"])
+                    calculate_employer_contribution(data)
+                    data["installments"] = payslip_data["installments"]
+                    payslip_data["instance"] = save_payslip(**data)
+                    form = forms.PayslipForm()
+                    messages.success(request, _("Payslip Saved"))
+                except ValidationError as e:
+                    messages.error(
+                        request,
+                        _(f"Failed to generate payslip: {str(e)}")
+                    )
+                    logger.error(f"Payslip calculation failed for employee {employee.id}: {e}")
+                except Exception as e:
+                    messages.error(
+                        request,
+                        _("Unexpected error generating payslip. Please contact support.")
+                    )
+                    logger.error(f"Unexpected error in payslip calculation for employee {employee.id}: {e}", exc_info=True)
                 payslip = payslip_data["instance"]
                 notify.send(
                     request.user.employee_get,
@@ -998,13 +1096,22 @@ def view_individual_payslip(request, employee_id, start_date, end_date):
     """
     This method is used to render the template for viewing a payslip.
     """
-
-    payslip_data = payroll_calculation(employee_id, start_date, end_date)
-    return render(
-        request,
-        "payroll/payslip/individual_payslip.html",
-        payslip_data,
-    )
+    
+    try:
+        payslip_data = payroll_calculation(employee_id, start_date, end_date, request)
+        return render(
+            request,
+            "payroll/payslip/individual_payslip.html",
+            payslip_data,
+        )
+    except ValidationError as e:
+        messages.error(request, _(f"Failed to calculate payslip: {str(e)}"))
+        logger.error(f"Payslip calculation failed for employee {employee_id}: {e}")
+        return redirect("view-payslip")
+    except Exception as e:
+        messages.error(request, _("Unexpected error calculating payslip. Please contact support."))
+        logger.error(f"Unexpected error in payslip calculation for employee {employee_id}: {e}", exc_info=True)
+        return redirect("view-payslip")
 
 
 @login_required

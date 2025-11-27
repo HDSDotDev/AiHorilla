@@ -28,12 +28,32 @@ def get_active_country():
     """
     Get the currently active country from PayrollCountryConfig.
     Returns 'USA' if no country is set (default).
+    
+    This function is used for filtering deductions and allowances by country.
+    For payroll calculations, prefer using request.payroll_country from middleware.
+    
+    Returns:
+        str: Country code ('USA' or 'PH')
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         from payroll.models.country_models import PayrollCountryConfig
         active_config = PayrollCountryConfig.objects.filter(is_active=True).first()
-        return active_config.country if active_config else 'USA'
-    except Exception:
+        
+        if active_config:
+            logger.debug(f"Active payroll country: {active_config.country}")
+            return active_config.country
+        else:
+            logger.debug("No active country configured, defaulting to USA")
+            return 'USA'
+            
+    except ImportError as e:
+        logger.error(f"Failed to import PayrollCountryConfig: {e}")
+        return 'USA'
+    except Exception as e:
+        logger.error(f"Error getting active country: {e}", exc_info=True)
         return 'USA'
 
 

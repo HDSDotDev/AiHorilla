@@ -59,9 +59,11 @@ class EmployeeAdmin(admin.ModelAdmin):
         "employee_user_id__username",
         "employee_first_name",
         "employee_last_name",
+        "tin_number",
+        "sss_number",
     )
 
-    list_filter = ("is_active",)
+    list_filter = ("is_active", "ph_region", "ph_tax_status")
 
     ordering = ("employee_first_name", "employee_last_name")
 

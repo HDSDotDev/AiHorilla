@@ -1,0 +1,261 @@
+================================================================================
+  HORILLA HRMS - PHILIPPINES PAYROLL EDITION
+  Installation Guide
+================================================================================
+
+📋 QUICK START (3 Commands - That's It!)
+================================================================================
+
+1. Install dependencies:
+   pip install -r requirements.txt
+
+2. Run setup:
+   python setup.py
+
+3. Start server:
+   python manage.py runserver
+
+Done! Visit http://127.0.0.1:8000
+
+================================================================================
+  DETAILED INSTRUCTIONS
+================================================================================
+
+🔷 FIRST-TIME INSTALLATION (Fresh Machine)
+────────────────────────────────────────────────────────────────────────────
+
+1. Clone the repository:
+   git clone https://github.com/YourRepo/horilla.git
+   cd horilla
+
+2. Create virtual environment (recommended):
+   python -m venv venv
+   
+   # Windows
+   venv\Scripts\activate
+   
+   # Linux/Mac
+   source venv/bin/activate
+
+3. Install Python packages:
+   pip install -r requirements.txt
+
+4. Run universal setup script:
+   python setup.py
+   
+   The script automatically:
+   ✅ Detects if this is a fresh install or update
+   ✅ Applies all necessary database migrations
+   ✅ Populates Philippines payroll data
+   ✅ Configures SSS, PhilHealth, Pag-IBIG, taxes
+   ✅ Sets up 17 Philippine regions
+   ✅ Creates overtime rules and holidays
+
+5. Create admin user:
+   python manage.py createsuperuser
+
+6. Start the server:
+   python manage.py runserver
+
+7. Access the system:
+   http://127.0.0.1:8000
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 UPDATING EXISTING INSTALLATION
+────────────────────────────────────────────────────────────────────────────
+
+If you already have Horilla installed and want to add Philippines features:
+
+1. Pull latest changes:
+   git pull origin main
+
+2. Update dependencies:
+   pip install -r requirements.txt --upgrade
+
+3. Run setup (auto-detects and updates):
+   python setup.py
+   
+   OR use auto mode:
+   python setup.py --auto
+
+4. Restart server:
+   python manage.py runserver
+
+The setup script is SMART:
+✅ Detects existing installation
+✅ Only applies NEW migrations
+✅ Skips already-populated data
+✅ Never breaks existing data
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 SETUP SCRIPT OPTIONS
+────────────────────────────────────────────────────────────────────────────
+
+Interactive mode (recommended):
+  python setup.py
+
+Auto mode (no prompts):
+  python setup.py --auto
+
+Force fresh install:
+  python setup.py --fresh
+
+Only populate Philippines data:
+  python setup.py --philippines-only
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 TROUBLESHOOTING
+────────────────────────────────────────────────────────────────────────────
+
+Problem: "Table already exists" errors
+Solution: Run: python setup.py
+          The script auto-repairs migration conflicts
+
+Problem: Philippines tables not created
+Solution: Run: python setup.py --philippines-only
+
+Problem: Migration conflicts between machines
+Solution: The new setup.py handles this automatically
+          Just run: python setup.py
+
+Problem: Want to start completely fresh
+Solution: 1. Delete database: del TestDB_Horilla.sqlite3
+          2. Run: python setup.py --fresh
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 SYSTEM REQUIREMENTS
+────────────────────────────────────────────────────────────────────────────
+
+Required:
+  • Python 3.8 or higher
+  • pip (Python package manager)
+  • SQLite (included with Python)
+
+Recommended:
+  • Python 3.12 (for best performance)
+  • Virtual environment (venv)
+
+Optional:
+  • PostgreSQL (for production)
+  • Redis (for caching)
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 WHAT'S INCLUDED (Philippines Payroll)
+────────────────────────────────────────────────────────────────────────────
+
+✅ Government Contributions:
+   • SSS (Social Security System)
+   • PhilHealth (National Health Insurance)
+   • Pag-IBIG (Home Development Mutual Fund)
+
+✅ Tax Compliance:
+   • TRAIN Law graduated income tax
+   • BIR Form 2316 (Annual ITR)
+   • Alphalist export for BIR submission
+   • Tax exemptions (₱50K + ₱25K × dependents)
+
+✅ Labor Law Compliance:
+   • 13th Month Pay (PD 851)
+   • Overtime pay (125-338% multipliers)
+   • Holiday pay (200%/130% rates)
+   • Night differential (10% additional)
+   • Regional minimum wage (17 regions)
+
+✅ Advanced Features:
+   • Final Pay calculator (separation pay)
+   • De-minimis benefits tracking
+   • Government remittance forms (SSS R3, PhilHealth RF-1, Pag-IBIG MCRF)
+   • Batch 13th month pay generator
+
+✅ Client-Facing UI:
+   • All features accessible without admin access
+   • Export to Excel/CSV
+   • Print-optimized templates
+   • Mobile responsive
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 DEPLOYMENT TO PRODUCTION
+────────────────────────────────────────────────────────────────────────────
+
+For production deployment:
+
+1. Use PostgreSQL instead of SQLite:
+   pip install psycopg2-binary
+   
+2. Configure production settings:
+   Edit horilla/settings.py:
+   • Set DEBUG = False
+   • Configure ALLOWED_HOSTS
+   • Set up PostgreSQL database
+   • Configure SECRET_KEY
+
+3. Collect static files:
+   python manage.py collectstatic
+
+4. Use production server:
+   pip install gunicorn
+   gunicorn horilla.wsgi:application
+
+5. Set up reverse proxy (nginx/Apache)
+
+See DEPLOYMENT_CHECKLIST.md for complete production setup.
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 MIGRATION MANAGEMENT (For Developers)
+────────────────────────────────────────────────────────────────────────────
+
+IMPORTANT: Never delete or modify existing migration files!
+
+Current migration structure:
+  payroll/migrations/
+    0001_initial.py          # Base models (DO NOT DELETE)
+    0002_*.py                # Feature additions
+    0003_*.py                # Philippines base
+    0004-0010_*.py           # Philippines features
+
+Adding new features:
+  1. Make model changes
+  2. Run: python manage.py makemigrations payroll --name="descriptive_name"
+  3. Test on fresh database: python setup.py --fresh
+  4. Test on existing install: python setup.py
+  5. Commit migration file
+
+The setup.py script ensures migrations work correctly across:
+  ✅ Fresh installations
+  ✅ Existing installations
+  ✅ Partial/broken states
+
+────────────────────────────────────────────────────────────────────────────
+
+🔷 GETTING HELP
+────────────────────────────────────────────────────────────────────────────
+
+Documentation:
+  • README.md - General overview
+  • PHILIPPINES_PAYROLL_GUIDE.md - Philippines features
+  • DEPLOYMENT_CHECKLIST.md - Production deployment
+  • QUICK_START.md - Quick reference
+
+Support:
+  • GitHub Issues: https://github.com/YourRepo/horilla/issues
+  • Email: support@example.com
+
+================================================================================
+  🎉 THAT'S IT! SIMPLE 3-COMMAND INSTALLATION!
+================================================================================
+
+Remember:
+  1. pip install -r requirements.txt
+  2. python setup.py
+  3. python manage.py runserver
+
+The setup script handles EVERYTHING else automatically!
+
+================================================================================

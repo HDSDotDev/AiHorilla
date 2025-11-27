@@ -248,6 +248,18 @@
 							</li>
 
 							{% if "payroll"|app_installed %}
+							<li data-cell-index="14" data-cell-title="{% trans 'Government IDs' %}" class="oh-general__tab">
+								<a
+								hx-get="{% url 'government-ids-tab' employee.id %}"
+								hx-target="#government_ids_target"
+								data-action="general-tab"
+								data-target="#government_ids_target"
+								class="oh-general__tab-link"
+								role="button"
+								><ion-icon name="card-outline" style="vertical-align: middle;"></ion-icon> {% trans "Government IDs" %}</a
+								>
+							</li>
+							
 							<li data-cell-index="10" data-cell-title="{% trans 'Bonus Points' %}" class="oh-general__tab">
 								<a
 								hx-get="{% url 'bonus-points-tab' employee.id %}"
@@ -314,6 +326,8 @@
 						<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="bonus_points_target">
 							{% include "tabs/bonus_points.html" %}
 						</div>
+						
+						<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="government_ids_target"></div>
 						{% endif %}
 
 						<div class="oh-general__tab-target oh-profile__info-tab mt-3 mb-4 d-none" id="resignation_target">

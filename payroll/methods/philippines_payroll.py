@@ -30,14 +30,28 @@ from payroll.models.country_models import (
 class PhilippinesPayrollCalculator:
     """
     Main calculator class for Philippines payroll computations
+    
+    Supports both monthly and semi-monthly pay periods
     """
 
-    def __init__(self, employee: Employee, basic_salary: Decimal, period_start: date, period_end: date):
+    def __init__(self, employee: Employee, basic_salary: Decimal, period_start: date, period_end: date, 
+                 pay_period: str = 'monthly'):
+        """
+        Initialize payroll calculator
+        
+        Args:
+            employee: Employee instance
+            basic_salary: Monthly basic salary (even for semi-monthly, pass full monthly amount)
+            period_start: Payroll period start date
+            period_end: Payroll period end date
+            pay_period: 'monthly', 'semi_monthly_first', or 'semi_monthly_second'
+        """
         self.employee = employee
         self.basic_salary = Decimal(str(basic_salary))
         self.period_start = period_start
         self.period_end = period_end
         self.computation_date = date.today()
+        self.pay_period = pay_period  # 'monthly', 'semi_monthly_first', 'semi_monthly_second'
 
     def get_sss_contribution(self) -> Dict[str, Decimal]:
         """
@@ -45,12 +59,13 @@ class PhilippinesPayrollCalculator:
         Returns dict with employee, employer, and EC contributions
         """
         # Get the applicable SSS contribution table
+        # Order by effective_date DESC, then min_salary DESC to get the most recent and closest bracket
         sss_table = PhilippinesSSSContribution.objects.filter(
             effective_date__lte=self.computation_date,
             min_salary__lte=self.basic_salary
         ).filter(
             Q(max_salary__gte=self.basic_salary) | Q(max_salary__isnull=True)
-        ).order_by('-effective_date').first()
+        ).order_by('-effective_date', '-min_salary').first()
 
         if not sss_table:
             # If no table found, use minimum or return zero
@@ -74,6 +89,15 @@ class PhilippinesPayrollCalculator:
         """
         Calculate PhilHealth contribution based on monthly salary
         Returns dict with employee and employer shares
+        
+        PhilHealth 2024 regulations:
+        - Premium Rate: 5% of basic salary
+        - Salary Floor: ₱10,000 (minimum for calculation)
+        - Salary Ceiling: ₱100,000 (maximum for calculation)
+        - Maximum Premium: ₱5,000/month (₱100,000 × 5%)
+        - Minimum Premium: ₱500/month (₱10,000 × 5%)
+        - Employee Share: 50% (₱2,500 max, ₱250 min)
+        - Employer Share: 50% (₱2,500 max, ₱250 min)
         """
         philhealth_table = PhilippinesPhilHealthContribution.objects.filter(
             effective_date__lte=self.computation_date,
@@ -83,17 +107,27 @@ class PhilippinesPayrollCalculator:
         ).order_by('-effective_date').first()
 
         if not philhealth_table:
-            # Calculate using 5% rate if no table
+            # Apply salary floor and ceiling per PhilHealth regulations
+            salary_floor = Decimal('10000.00')  # Minimum ₱10,000
+            salary_ceiling = Decimal('100000.00')  # Maximum ₱100,000
+            
+            # Clamp salary between floor and ceiling
+            clamped_salary = max(salary_floor, min(self.basic_salary, salary_ceiling))
+            
+            # Calculate 5% premium
             premium_rate = Decimal('0.05')  # 5%
-            monthly_premium = self.basic_salary * premium_rate
-            employee_share = monthly_premium / 2
-            employer_share = monthly_premium / 2
+            monthly_premium = clamped_salary * premium_rate
+            
+            # Split 50/50 between employee and employer
+            employee_share = monthly_premium / 2  # Min ₱250, Max ₱2,500
+            employer_share = monthly_premium / 2  # Min ₱250, Max ₱2,500
 
             return {
                 'employee_share': employee_share.quantize(Decimal('0.01')),
                 'employer_share': employer_share.quantize(Decimal('0.01')),
                 'monthly_premium': monthly_premium.quantize(Decimal('0.01')),
-                'premium_rate': premium_rate
+                'premium_rate': premium_rate,
+                'salary_used': clamped_salary.quantize(Decimal('0.01'))
             }
 
         return {
@@ -107,6 +141,12 @@ class PhilippinesPayrollCalculator:
         """
         Calculate Pag-IBIG contribution based on monthly salary
         Returns dict with employee and employer contributions
+        
+        Pag-IBIG 2024 rates (per HDMF regulations):
+        - ₱1,000 and below: 1% employee, 2% employer
+        - ₱1,000.01 to ₱1,500: 2% employee, 2% employer
+        - ₱1,500.01 and above: 2% employee, 2% employer (max ₱100 each)
+        - Salary cap: ₱5,000 maximum for calculation base
         """
         pagibig_table = PhilippinesPagIbigContribution.objects.filter(
             effective_date__lte=self.computation_date,
@@ -116,24 +156,42 @@ class PhilippinesPayrollCalculator:
         ).order_by('-effective_date').first()
 
         if not pagibig_table:
-            # Default calculation: 2% employee, 2% employer
-            employee_rate = Decimal('0.02')  # 2%
-            employer_rate = Decimal('0.02')  # 2%
+            # Apply salary cap (₱5,000 maximum compensation for calculation)
+            salary_for_calculation = min(self.basic_salary, Decimal('5000.00'))
             
-            employee_contribution = (self.basic_salary * employee_rate).quantize(Decimal('0.01'))
-            employer_contribution = (self.basic_salary * employer_rate).quantize(Decimal('0.01'))
+            # Apply tiered rate structure per HDMF regulations
+            if salary_for_calculation <= Decimal('1000.00'):
+                # Tier 1: ₱1,000 and below
+                employee_rate = Decimal('0.01')  # 1%
+                employer_rate = Decimal('0.02')  # 2%
+                
+            elif salary_for_calculation <= Decimal('1500.00'):
+                # Tier 2: ₱1,000.01 to ₱1,500
+                employee_rate = Decimal('0.02')  # 2%
+                employer_rate = Decimal('0.02')  # 2%
+                
+            else:
+                # Tier 3: ₱1,500.01 and above
+                employee_rate = Decimal('0.02')  # 2%
+                employer_rate = Decimal('0.02')  # 2%
             
-            # Cap at ₱100 for employee if salary <= ₱1,500
-            if self.basic_salary <= Decimal('1500.00'):
-                employee_contribution = min(employee_contribution, Decimal('100.00'))
-                employer_contribution = min(employer_contribution, Decimal('100.00'))
+            # Calculate contributions
+            employee_contribution = min(
+                salary_for_calculation * employee_rate,
+                Decimal('100.00')  # MAXIMUM ₱100 employee contribution
+            )
+            employer_contribution = min(
+                salary_for_calculation * employer_rate,
+                Decimal('100.00')  # MAXIMUM ₱100 employer contribution
+            )
 
             return {
-                'employee_contribution': employee_contribution,
-                'employer_contribution': employer_contribution,
-                'total_contribution': employee_contribution + employer_contribution,
+                'employee_contribution': employee_contribution.quantize(Decimal('0.01')),
+                'employer_contribution': employer_contribution.quantize(Decimal('0.01')),
+                'total_contribution': (employee_contribution + employer_contribution).quantize(Decimal('0.01')),
                 'employee_rate': employee_rate,
-                'employer_rate': employer_rate
+                'employer_rate': employer_rate,
+                'salary_used': salary_for_calculation.quantize(Decimal('0.01'))
             }
 
         return {
@@ -147,20 +205,33 @@ class PhilippinesPayrollCalculator:
     def calculate_withholding_tax(
         self,
         taxable_income: Decimal,
-        thirteenth_month_pay: Decimal = Decimal('0.00')
+        thirteenth_month_pay: Decimal = Decimal('0.00'),
+        num_dependents: int = 0
     ) -> Dict[str, Decimal]:
         """
         Calculate withholding tax based on TRAIN Law (Tax Reform for Acceleration and Inclusion)
         
+        Tax Exemptions (as of 2024):
+        - Personal exemption: ₱50,000/year
+        - Additional exemption per dependent: ₱25,000/year (maximum 4 dependents)
+        
         Args:
             taxable_income: Monthly taxable income
             thirteenth_month_pay: 13th month pay amount (exempt up to ₱90,000/year)
+            num_dependents: Number of qualified dependents (max 4)
         
         Returns:
             Dict with tax details
         """
         # Convert monthly to annual income
         annual_taxable_income = taxable_income * 12
+
+        # Apply tax exemptions per BIR regulations
+        personal_exemption = Decimal('50000.00')  # ₱50,000 personal exemption
+        dependent_exemption = Decimal('25000.00')  # ₱25,000 per dependent
+        max_dependents = min(num_dependents, 4)  # Maximum 4 dependents
+        
+        total_exemptions = personal_exemption + (dependent_exemption * max_dependents)
 
         # Handle 13th month pay exemption (₱90,000 max)
         thirteenth_month_config = PhilippinesThirteenthMonthPay.objects.filter(
@@ -173,7 +244,10 @@ class PhilippinesPayrollCalculator:
 
         # Taxable portion of 13th month pay
         taxable_13th_month = max(Decimal('0.00'), thirteenth_month_pay - tax_exempt_13th_month)
-        total_annual_taxable = annual_taxable_income + taxable_13th_month
+        
+        # Calculate total taxable income after exemptions
+        gross_annual_taxable = annual_taxable_income + taxable_13th_month
+        total_annual_taxable = max(Decimal('0.00'), gross_annual_taxable - total_exemptions)
 
         # Get applicable tax bracket
         tax_bracket = PhilippinesTaxBracket.objects.filter(
@@ -190,7 +264,11 @@ class PhilippinesPayrollCalculator:
                 'annual_tax': Decimal('0.00'),
                 'tax_rate': Decimal('0.00'),
                 'base_tax': Decimal('0.00'),
-                'excess_tax': Decimal('0.00')
+                'excess_tax': Decimal('0.00'),
+                'personal_exemption': personal_exemption,
+                'dependent_exemption': dependent_exemption * max_dependents,
+                'total_exemptions': total_exemptions,
+                'num_dependents': max_dependents
             }
 
         # Calculate tax
@@ -205,7 +283,12 @@ class PhilippinesPayrollCalculator:
             'tax_rate': tax_bracket.tax_rate,
             'base_tax': tax_bracket.base_tax,
             'excess_tax': tax_on_excess.quantize(Decimal('0.01')),
-            'taxable_income': total_annual_taxable.quantize(Decimal('0.01'))
+            'taxable_income': total_annual_taxable.quantize(Decimal('0.01')),
+            'gross_taxable_income': gross_annual_taxable.quantize(Decimal('0.01')),
+            'personal_exemption': personal_exemption,
+            'dependent_exemption': dependent_exemption * max_dependents,
+            'total_exemptions': total_exemptions,
+            'num_dependents': max_dependents
         }
 
     def calculate_thirteenth_month_pay(
@@ -249,6 +332,83 @@ class PhilippinesPayrollCalculator:
             'months_worked': months_worked
         }
 
+    def validate_minimum_wage(self, region_code: str = None) -> Dict[str, any]:
+        """
+        Validate that employee's salary meets minimum wage requirements
+        
+        Args:
+            region_code: Philippines region code (e.g., 'NCR', 'Region I')
+            
+        Returns:
+            Dict with validation result
+        """
+        if not region_code:
+            # Try to get from employee record
+            region_code = getattr(self.employee, 'ph_region', None) or \
+                         getattr(self.employee, 'philippines_region', None)
+        
+        if not region_code:
+            return {
+                'is_compliant': None,
+                'message': 'No region assigned to employee - cannot validate minimum wage'
+            }
+        
+        try:
+            region = PhilippinesRegion.objects.filter(region_code=region_code).first()
+            if not region:
+                return {
+                    'is_compliant': None,
+                    'message': f'Region {region_code} not found in database'
+                }
+            
+            daily_rate = self.get_daily_rate()
+            
+            if daily_rate < region.daily_minimum_wage:
+                return {
+                    'is_compliant': False,
+                    'employee_daily_rate': daily_rate,
+                    'minimum_required': region.daily_minimum_wage,
+                    'shortfall': region.daily_minimum_wage - daily_rate,
+                    'message': f'Salary below minimum wage for {region.region_name}. '
+                              f'Employee: ₱{daily_rate:.2f}/day, Minimum: ₱{region.daily_minimum_wage:.2f}/day'
+                }
+            else:
+                return {
+                    'is_compliant': True,
+                    'employee_daily_rate': daily_rate,
+                    'minimum_required': region.daily_minimum_wage,
+                    'message': f'Salary meets minimum wage for {region.region_name}'
+                }
+        except Exception as e:
+            return {
+                'is_compliant': None,
+                'message': f'Error validating minimum wage: {str(e)}'
+            }
+    
+    def get_daily_rate(self) -> Decimal:
+        """
+        Calculate daily rate per DOLE/Labor Code standards
+        
+        For monthly-paid employees:
+        Daily rate = (Monthly Basic × 12 months) ÷ 261 working days/year
+        
+        This is the CORRECT formula per Philippine Labor Code
+        """
+        # Standard annual working days in Philippines (excludes weekends and holidays)
+        annual_working_days = Decimal('261')
+        daily_rate = (self.basic_salary * 12) / annual_working_days
+        return daily_rate.quantize(Decimal('0.01'))
+    
+    def get_hourly_rate(self) -> Decimal:
+        """
+        Calculate hourly rate per DOLE/Labor Code standards
+        
+        Hourly rate = Daily rate ÷ 8 hours
+        """
+        daily_rate = self.get_daily_rate()
+        hourly_rate = daily_rate / Decimal('8')
+        return hourly_rate.quantize(Decimal('0.01'))
+
     def calculate_overtime_pay(
         self,
         overtime_hours: Decimal,
@@ -264,9 +424,9 @@ class PhilippinesPayrollCalculator:
         Returns:
             Dict with overtime pay details
         """
-        # Get hourly rate (monthly salary / 8 hours / days per month)
-        daily_rate = self.basic_salary / Decimal('22')  # Assuming 22 working days
-        hourly_rate = daily_rate / Decimal('8')
+        # Use proper daily and hourly rate calculations
+        daily_rate = self.get_daily_rate()
+        hourly_rate = self.get_hourly_rate()
 
         # Get overtime rule
         ot_rule = PhilippinesOvertimeRule.objects.filter(
@@ -290,17 +450,23 @@ class PhilippinesPayrollCalculator:
 
         # Calculate overtime pay
         if overtime_type == 'night_differential':
-            # Night differential is additional 10% of hourly rate
-            ot_pay = overtime_hours * hourly_rate * multiplier
+            # Night differential is ADDITIONAL 10% on top of regular or OT pay
+            # If working night shift without OT: regular pay + 10%
+            # If working night shift WITH OT: OT pay + 10%
+            # For this calculator, we return the 10% additional amount
+            night_diff_pay = overtime_hours * hourly_rate * Decimal('0.10')
+            ot_pay = night_diff_pay
         else:
+            # Regular overtime calculation
             ot_pay = overtime_hours * hourly_rate * multiplier
 
         return {
             'overtime_pay': ot_pay.quantize(Decimal('0.01')),
             'overtime_hours': overtime_hours,
-            'hourly_rate': hourly_rate.quantize(Decimal('0.01')),
+            'hourly_rate': hourly_rate,
             'multiplier': multiplier,
-            'overtime_type': overtime_type
+            'overtime_type': overtime_type,
+            'daily_rate': daily_rate
         }
 
     def calculate_holiday_pay(
@@ -309,7 +475,7 @@ class PhilippinesPayrollCalculator:
         worked: bool = False
     ) -> Dict[str, Decimal]:
         """
-        Calculate holiday pay
+        Calculate holiday pay per Labor Code
         
         Args:
             holiday_date: Date of the holiday
@@ -328,7 +494,8 @@ class PhilippinesPayrollCalculator:
                 'is_holiday': False
             }
 
-        daily_rate = self.basic_salary / Decimal('22')
+        # Use proper daily rate calculation
+        daily_rate = self.get_daily_rate()
 
         if worked:
             # If worked on holiday, pay is multiplied
@@ -390,6 +557,47 @@ class PhilippinesPayrollCalculator:
             'region': region_code
         }
 
+    def get_semi_monthly_adjustments(self) -> Dict[str, any]:
+        """
+        Get adjustments for semi-monthly payroll
+        
+        Government contributions (SSS, PhilHealth, Pag-IBIG) are deducted ONCE per month,
+        typically in the 2nd payroll. Basic pay is split in half.
+        
+        Returns:
+            Dict with adjustment factors
+        """
+        if self.pay_period == 'semi_monthly_first':
+            # 1st half of month: Half basic pay, NO government contributions
+            return {
+                'basic_pay_factor': Decimal('0.5'),  # 50% of monthly
+                'deduct_sss': False,
+                'deduct_philhealth': False,
+                'deduct_pagibig': False,
+                'deduct_tax': True,  # Tax is split equally
+                'tax_factor': Decimal('0.5')  # 50% of monthly tax
+            }
+        elif self.pay_period == 'semi_monthly_second':
+            # 2nd half of month: Half basic pay, FULL government contributions
+            return {
+                'basic_pay_factor': Decimal('0.5'),  # 50% of monthly
+                'deduct_sss': True,  # FULL month's contribution
+                'deduct_philhealth': True,  # FULL month's contribution
+                'deduct_pagibig': True,  # FULL month's contribution
+                'deduct_tax': True,  # Remaining tax
+                'tax_factor': Decimal('0.5')  # 50% of monthly tax
+            }
+        else:
+            # Monthly: Everything at 100%
+            return {
+                'basic_pay_factor': Decimal('1.0'),
+                'deduct_sss': True,
+                'deduct_philhealth': True,
+                'deduct_pagibig': True,
+                'deduct_tax': True,
+                'tax_factor': Decimal('1.0')
+            }
+    
     def calculate_net_pay(
         self,
         gross_pay: Decimal,
@@ -400,10 +608,10 @@ class PhilippinesPayrollCalculator:
         other_deductions: Decimal = Decimal('0.00')
     ) -> Dict[str, Decimal]:
         """
-        Calculate net pay
+        Calculate net pay with support for semi-monthly payroll
         
         Args:
-            gross_pay: Gross monthly pay
+            gross_pay: Gross pay for the period
             sss: SSS employee contribution (calculated if not provided)
             philhealth: PhilHealth employee share (calculated if not provided)
             pagibig: Pag-IBIG employee contribution (calculated if not provided)
@@ -413,20 +621,43 @@ class PhilippinesPayrollCalculator:
         Returns:
             Dict with net pay breakdown
         """
+        # Get semi-monthly adjustments
+        adjustments = self.get_semi_monthly_adjustments()
+        
         # Calculate mandatory deductions if not provided
         if sss is None:
-            sss = self.get_sss_contribution()['employee_contribution']
+            sss_full = self.get_sss_contribution()['employee_contribution']
+            sss = sss_full if adjustments['deduct_sss'] else Decimal('0.00')
+        
         if philhealth is None:
-            philhealth = self.get_philhealth_contribution()['employee_share']
+            philhealth_full = self.get_philhealth_contribution()['employee_share']
+            philhealth = philhealth_full if adjustments['deduct_philhealth'] else Decimal('0.00')
+        
         if pagibig is None:
-            pagibig = self.get_pagibig_contribution()['employee_contribution']
+            pagibig_full = self.get_pagibig_contribution()['employee_contribution']
+            pagibig = pagibig_full if adjustments['deduct_pagibig'] else Decimal('0.00')
 
         # Calculate taxable income (gross - non-taxable deductions)
-        taxable_income = gross_pay - sss - philhealth - pagibig
-
-        if withholding_tax is None:
-            tax_result = self.calculate_withholding_tax(taxable_income)
-            withholding_tax = tax_result['monthly_tax']
+        # For tax calculation, always use FULL monthly amounts then apply factor
+        if self.pay_period.startswith('semi_monthly'):
+            # Calculate monthly taxable income then split
+            monthly_gross = gross_pay / adjustments['basic_pay_factor']
+            monthly_sss = sss if adjustments['deduct_sss'] else sss_full if 'sss_full' in locals() else self.get_sss_contribution()['employee_contribution']
+            monthly_philhealth = philhealth if adjustments['deduct_philhealth'] else philhealth_full if 'philhealth_full' in locals() else self.get_philhealth_contribution()['employee_share']
+            monthly_pagibig = pagibig if adjustments['deduct_pagibig'] else pagibig_full if 'pagibig_full' in locals() else self.get_pagibig_contribution()['employee_contribution']
+            
+            monthly_taxable = monthly_gross - monthly_sss - monthly_philhealth - monthly_pagibig
+            
+            if withholding_tax is None:
+                tax_result = self.calculate_withholding_tax(monthly_taxable)
+                monthly_tax = tax_result['monthly_tax']
+                withholding_tax = (monthly_tax * adjustments['tax_factor']).quantize(Decimal('0.01'))
+        else:
+            # Monthly: standard calculation
+            taxable_income = gross_pay - sss - philhealth - pagibig
+            if withholding_tax is None:
+                tax_result = self.calculate_withholding_tax(taxable_income)
+                withholding_tax = tax_result['monthly_tax']
 
         # Calculate total deductions
         total_deductions = sss + philhealth + pagibig + withholding_tax + other_deductions
@@ -443,7 +674,7 @@ class PhilippinesPayrollCalculator:
             'other_deductions': other_deductions.quantize(Decimal('0.01')),
             'total_deductions': total_deductions.quantize(Decimal('0.01')),
             'net_pay': net_pay.quantize(Decimal('0.01')),
-            'taxable_income': taxable_income.quantize(Decimal('0.01'))
+            'pay_period': self.pay_period
         }
 
 

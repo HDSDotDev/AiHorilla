@@ -1,0 +1,213 @@
+{% extends 'index.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-check-circle text-success"></i> {{ title }}</h2>
+                <div>
+                    <a href="{% url 'philippines-thirteenth-month-generator' %}" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Generate New
+                    </a>
+                    <a href="?clear=true" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Clear Results
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if results %}
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Employees</h6>
+                    <h3 class="mb-0">{{ results|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total 13th Month Pay</h6>
+                    <h3 class="mb-0">₱{{ total_13th_month|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Tax-Exempt Portion</h6>
+                    <h3 class="mb-0">₱{{ total_tax_exempt|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Taxable Portion</h6>
+                    <h3 class="mb-0">₱{{ total_taxable|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Results Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> 13th Month Pay Calculation Results ({{year}})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Employee Name</th>
+                                    <th>Employee ID</th>
+                                    <th>Months Worked</th>
+                                    <th>Total Basic Salary (YTD)</th>
+                                    <th>13th Month Pay</th>
+                                    <th>Tax-Exempt</th>
+                                    <th>Taxable</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr class="{% if result.error %}table-danger{% endif %}">
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ result.employee_name }}</strong></td>
+                                    <td>{{ result.employee_badge_id|default:"N/A" }}</td>
+                                    <td>{{ result.months_worked }} months</td>
+                                    <td>₱{{ result.total_basic_ytd|floatformat:2 }}</td>
+                                    <td class="fw-bold text-success">₱{{ result.thirteenth_month_pay|floatformat:2 }}</td>
+                                    <td class="text-info">₱{{ result.tax_exempt_portion|floatformat:2 }}</td>
+                                    <td class="text-warning">₱{{ result.taxable_portion|floatformat:2 }}</td>
+                                    <td>
+                                        {% if result.error %}
+                                            <span class="badge bg-danger">Error</span>
+                                            <small class="text-danger d-block">{{ result.error }}</small>
+                                        {% else %}
+                                            <span class="badge bg-success">Calculated</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="5" class="text-end">TOTALS:</td>
+                                    <td class="text-success">₱{{ total_13th_month|floatformat:2 }}</td>
+                                    <td class="text-info">₱{{ total_tax_exempt|floatformat:2 }}</td>
+                                    <td class="text-warning">₱{{ total_taxable|floatformat:2 }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <button onclick="window.print()" class="btn btn-secondary">
+                        <i class="bi bi-printer"></i> Print Results
+                    </button>
+                    <button onclick="exportToCSV()" class="btn btn-outline-secondary">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Export to CSV
+                    </button>
+                </div>
+                <div>
+                    <a href="{% url 'philippines-thirteenth-month-generator' %}" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Generate for More Employees
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information Box -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5><i class="bi bi-info-circle"></i> Next Steps</h5>
+                <ol class="mb-0">
+                    <li>Review all calculations for accuracy</li>
+                    <li>Create payroll entries for the 13th month pay</li>
+                    <li>Ensure payment is processed before December 24</li>
+                    <li>Tax-exempt portions (up to ₱90,000) should not be included in withholding tax</li>
+                    <li>Taxable excess should be added to employee's taxable income for the year</li>
+                    <li>Report all amounts in BIR Form 2316 (Annual ITR)</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- No Results -->
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h4><i class="bi bi-exclamation-triangle"></i> No Results Available</h4>
+                <p>No 13th month pay calculations found. Please generate calculations first.</p>
+                <a href="{% url 'philippines-thirteenth-month-generator' %}" class="btn btn-primary">
+                    <i class="bi bi-calculator"></i> Go to Generator
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function exportToCSV() {
+    // Prepare CSV data
+    let csv = 'Employee Name,Employee ID,Months Worked,Total Basic Salary,13th Month Pay,Tax-Exempt,Taxable,Status\n';
+    
+    // eslint-disable-next-line
+    {% for result in results %}
+    csv += '"{{ result.employee_name }}",';
+    csv += '"{{ result.employee_badge_id|default:"N/A" }}",';
+    csv += '{{ result.months_worked }},';
+    csv += '{{ result.total_basic_ytd }},';
+    csv += '{{ result.thirteenth_month_pay }},';
+    csv += '{{ result.tax_exempt_portion }},';
+    csv += '{{ result.taxable_portion }},';
+    csv += '"{% if result.error %}Error: {{ result.error }}{% else %}Calculated{% endif %}"\n';
+    // eslint-disable-next-line
+    {% endfor %}
+    
+    // Create download link
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '13th_month_pay_results_{{year}}.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+
+<style>
+@media print {
+    .btn, .alert { display: none !important; }
+    .card { border: 1px solid #000 !important; }
+}
+</style>
+{% endblock %}

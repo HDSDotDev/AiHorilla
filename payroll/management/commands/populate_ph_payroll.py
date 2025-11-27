@@ -288,14 +288,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('✓ Created 13th month pay configuration for 2025'))
 
     def create_overtime_rules(self):
-        """Create overtime pay rules"""
+        """Create overtime pay rules per Labor Code Articles 87, 93-94"""
         ot_rules = [
             ('regular_day_ot', Decimal('1.25'), 'Regular day overtime - 125% of hourly rate'),
             ('rest_day_ot', Decimal('1.30'), 'Rest day overtime - 130% of hourly rate'),
             ('special_holiday_ot', Decimal('1.30'), 'Special holiday overtime - 130% of hourly rate'),
             ('special_holiday_rest_day_ot', Decimal('1.50'), 'Special holiday + rest day overtime - 150% of hourly rate'),
-            ('regular_holiday_ot', Decimal('1.60'), 'Regular holiday overtime - 160% of hourly rate'),
-            ('regular_holiday_rest_day_ot', Decimal('2.60'), 'Regular holiday + rest day overtime - 260% of hourly rate'),
+            ('regular_holiday_ot', Decimal('2.60'), 'Regular holiday overtime - 260% of hourly rate (200% holiday + 30% OT)'),
+            ('regular_holiday_rest_day_ot', Decimal('3.38'), 'Regular holiday + rest day overtime - 338% of hourly rate (260% base + 30% OT)'),
             ('night_differential', Decimal('0.10'), 'Night differential (10 PM - 6 AM) - Additional 10% of hourly rate'),
         ]
         

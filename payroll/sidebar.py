@@ -79,6 +79,11 @@ SUBMENUS = [
         "accessibility": "payroll.sidebar.philippines_only_menu",
     },
     {
+        "menu": trans("Generate 13th Month Pay"),
+        "redirect": reverse("philippines-thirteenth-month-generator"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
         "menu": trans("Overtime Rules"),
         "redirect": reverse("philippines-overtime-rules"),
         "accessibility": "payroll.sidebar.philippines_only_menu",
@@ -91,6 +96,26 @@ SUBMENUS = [
     {
         "menu": trans("COLA (Cost of Living)"),
         "redirect": reverse("philippines-cola"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("BIR Form 2316"),
+        "redirect": reverse("philippines-bir-form-2316-list"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Final Pay Calculator"),
+        "redirect": reverse("philippines-final-pay-calculator"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Final Pay Records"),
+        "redirect": reverse("philippines-final-pay-list"),
+        "accessibility": "payroll.sidebar.philippines_only_menu",
+    },
+    {
+        "menu": trans("Government Forms"),
+        "redirect": reverse("philippines-government-forms-generator"),
         "accessibility": "payroll.sidebar.philippines_only_menu",
     },
 ]

@@ -1,52 +1,219 @@
-# **Horilla 🦍** [![LGPL License](https://img.shields.io/badge/license-LGPL-green.svg)](https://www.gnu.org/licenses/lgpl-3.0)  [![Docker](https://img.shields.io/badge/Docker-Horilla-blue?logo=docker)](https://hub.docker.com/r/horilla/horilla)
+# **Horilla 🦍 - Philippines Payroll Edition** [![LGPL License](https://img.shields.io/badge/license-LGPL-green.svg)](https://www.gnu.org/licenses/lgpl-3.0)  [![Docker](https://img.shields.io/badge/Docker-Horilla-blue?logo=docker)](https://hub.docker.com/r/horilla/horilla)
 
 **Horilla** is a Free and Open Source HRMS (Human Resource Management System) Software designed to streamline HR processes and enhance organizational efficiency.
+
+**Philippines Payroll Edition** includes complete compliance with Philippine labor laws and government requirements.
 
 ![Horilla Screenshot](https://github.com/horilla-opensource/horilla/assets/131998600/1317bd0a-03a8-40be-8fb2-ecb655bb5c13)
 
 ---
 
-## **Installation**
+## **🚀 Quick Start (3 Commands)**
 
-Horilla can be installed on your system by following the steps below. Ensure you have **Python**, **Django**, and a **database** (preferably PostgreSQL) installed as prerequisites.
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Run setup (handles everything automatically)
+python setup.py
+
+# 3. Start server
+python manage.py runserver
+```
+
+**That's it!** Visit http://127.0.0.1:8000
+
+The `setup.py` script automatically:
+- ✅ Detects fresh install vs. update
+- ✅ Applies all necessary migrations
+- ✅ Populates Philippines payroll data
+- ✅ Handles migration conflicts gracefully
+- ✅ Works on ANY machine, ANY database state
 
 ---
 
-## **Prerequisites**
+## **📋 Installation**
 
-### **1. Python Installation**
+### **Prerequisites**
 
-#### **Ubuntu**
-1. Open the terminal and install Python:
-   ```bash
-   sudo apt-get install python3
-   ```
-2. Verify the installation:
-   ```bash
-   python3 --version
-   ```
+- Python 3.8+ (Python 3.12 recommended)
+- pip (Python package manager)
+- Virtual environment (recommended)
 
-#### **Windows**
-1. Download Python from the [official website](https://www.python.org/downloads/windows/).
-2. During installation, ensure you select **"Add Python to PATH"**.
-3. Verify the installation:
+### **Step-by-Step Installation**
+
+1. **Clone the repository:**
    ```bash
-   python3 --version
+   git clone https://github.com/YourRepo/horilla.git
+   cd horilla
    ```
 
-#### **macOS**
-1. Install Homebrew (if not already installed):
+2. **Create virtual environment (recommended):**
    ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   python -m venv venv
+   
+   # Windows
+   venv\Scripts\activate
+   
+   # Linux/Mac
+   source venv/bin/activate
    ```
-2. Install Python:
+
+3. **Install dependencies:**
    ```bash
-   brew install python
+   pip install -r requirements.txt
    ```
-3. Verify the installation:
+
+4. **Run universal setup:**
    ```bash
-   python3 --version
+   python setup.py
    ```
+   
+   The script will:
+   - Auto-detect your database state
+   - Apply appropriate migrations
+   - Populate Philippines payroll configuration
+   - Handle any migration conflicts
+
+5. **Create admin user:**
+   ```bash
+   python manage.py createsuperuser
+   ```
+
+6. **Start the development server:**
+   ```bash
+   python manage.py runserver
+   ```
+
+7. **Access the application:**
+   
+   Open your browser and visit: http://127.0.0.1:8000
+
+---
+
+## **🔄 Updating Existing Installation**
+
+If you already have Horilla installed:
+
+```bash
+# 1. Pull latest changes
+git pull origin main
+
+# 2. Update dependencies
+pip install -r requirements.txt --upgrade
+
+# 3. Run setup (auto-detects and updates)
+python setup.py
+
+# 4. Restart server
+python manage.py runserver
+```
+
+The setup script intelligently handles:
+- ✅ Existing installations (only new migrations)
+- ✅ Fresh installations (all migrations)
+- ✅ Broken migrations (auto-repair)
+- ✅ No manual intervention needed
+
+---
+
+## **🇵🇭 Philippines Payroll Features**
+
+### **Government Compliance**
+- ✅ SSS (Social Security System)
+- ✅ PhilHealth (National Health Insurance)
+- ✅ Pag-IBIG (Home Development Mutual Fund)
+- ✅ BIR (Bureau of Internal Revenue)
+
+### **Tax Compliance**
+- ✅ TRAIN Law graduated income tax
+- ✅ Tax exemptions (₱50K + ₱25K × dependents)
+- ✅ BIR Form 2316 (Annual ITR)
+- ✅ Alphalist export
+
+### **Labor Law Compliance**
+- ✅ 13th Month Pay (PD 851)
+- ✅ Overtime pay (125-338% multipliers)
+- ✅ Holiday pay (200%/130% rates)
+- ✅ Night differential (10% additional)
+- ✅ Regional minimum wage (17 regions)
+
+### **Advanced Features**
+- ✅ Final Pay calculator
+- ✅ De-minimis benefits tracking
+- ✅ Government remittance forms
+- ✅ Batch payroll processing
+- ✅ Excel/CSV export
+
+### **User-Friendly**
+- ✅ No admin access required
+- ✅ Client-facing UI
+- ✅ Mobile responsive
+- ✅ Print-optimized reports
+
+---
+
+## **🔧 Setup Script Options**
+
+```bash
+# Interactive mode (recommended)
+python setup.py
+
+# Auto mode (no prompts)
+python setup.py --auto
+
+# Force fresh install
+python setup.py --fresh
+
+# Only populate Philippines data
+python setup.py --philippines-only
+```
+
+---
+
+## **❓ Troubleshooting**
+
+### **"Table already exists" errors**
+```bash
+python setup.py
+```
+The script auto-repairs migration conflicts.
+
+### **Philippines tables not created**
+```bash
+python setup.py --philippines-only
+```
+
+### **Want to start completely fresh**
+```bash
+# Delete database
+del TestDB_Horilla.sqlite3  # Windows
+rm TestDB_Horilla.sqlite3   # Linux/Mac
+
+# Run fresh install
+python setup.py --fresh
+```
+
+### **Migration conflicts between machines**
+The `setup.py` script handles this automatically. Just run:
+```bash
+python setup.py
+```
+
+---
+
+## **📚 Documentation**
+
+- **INSTALL.txt** - Detailed installation guide
+- **PHILIPPINES_PAYROLL_GUIDE.md** - Philippines features
+- **DEPLOYMENT_CHECKLIST.md** - Production deployment
+- **QUICK_START.md** - Quick reference
+
+---
+
+## **🐳 Docker Installation (Alternative)**
+
+For Docker users:
 
 ---
 
