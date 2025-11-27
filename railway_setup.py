@@ -76,30 +76,25 @@ except Exception as e:
     sys.exit(1)
 
 print("\n=== Running Migrations ===", flush=True)
-apps_to_migrate = [
-    'contenttypes',
-    'auth',
-    'admin',
-    'sessions',
-    'base',
-    'employee',
-    'leave',
-    'asset',
-    'attendance',
-    'payroll',
-    'pms',
-    'recruitment',
-    'onboarding',
-]
 
-for i, app in enumerate(apps_to_migrate, 1):
-    print(f"\n[{i}/{len(apps_to_migrate)}] Migrating {app}...", flush=True)
+# Strategy: Use migrate with --fake-initial to handle circular dependencies
+# This creates tables directly from models if migrations fail due to dependency issues
+print("Running full migration (with fake-initial to handle dependencies)...", flush=True)
+try:
+    # First try: Run all migrations with --fake-initial
+    # This will create tables from models if initial migrations can't be applied
+    call_command('migrate', '--fake-initial', '--noinput', verbosity=1)
+    print("✓ All migrations completed successfully", flush=True)
+except Exception as e:
+    print(f"⚠ Standard migration failed: {e}", flush=True)
+    print("\nTrying alternative: migrate with --run-syncdb...", flush=True)
     try:
-        call_command('migrate', app, '--noinput', verbosity=0)
-        print(f"  ✓ {app} migrated", flush=True)
-    except Exception as e:
-        print(f"  ⚠ {app} migration failed: {e}", flush=True)
-        # Continue with other apps
+        # Fallback: Use --run-syncdb to create tables directly from models
+        call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
+        print("✓ Database synchronized using --run-syncdb", flush=True)
+    except Exception as e2:
+        print(f"✗ Migration failed completely: {e2}", flush=True)
+        print("Attempting to continue with remaining setup...", flush=True)
 
 print("\n=== Creating Admin User ===", flush=True)
 try:
