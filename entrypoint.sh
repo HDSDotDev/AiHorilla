@@ -35,14 +35,10 @@ if [ -n "$DATABASE_URL" ]; then
     echo ">>> Testing Django import..."
     python3 -c "import django; print(f'Django version: {django.get_version()}')" 2>&1 || echo "ERROR: Django import failed"
     
-    echo ">>> Executing railway_init_db command (with 300s timeout)..."
+    echo ">>> Executing railway_setup.py (direct initialization script)..."
     echo ">>> Command starting at $(date)..."
     set +e
-    timeout 300 python3 -u manage.py railway_init_db 2>&1 &
-    INIT_PID=$!
-    echo ">>> railway_init_db process started with PID: $INIT_PID"
-    
-    wait $INIT_PID
+    timeout 300 python3 -u railway_setup.py 2>&1
     INIT_EXIT_CODE=$?
     set -e
     
