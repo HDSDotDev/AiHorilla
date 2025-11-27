@@ -127,12 +127,6 @@ except Exception as e:
 # Phase 3: Create payroll tables using syncdb (bypasses migration validation)
 print("Phase 3: Payroll tables (using direct syncdb)...", flush=True)
 try:
-    # First, mark the migration as applied without running it (fake it)
-    call_command('migrate', 'payroll', '--fake-initial', '--noinput', verbosity=0)
-    print("  ✓ Payroll migration marked as applied", flush=True)
-    
-    # Now create any missing tables directly from models using syncdb
-    from django.core.management import call_command
     from django.db import connection
     
     # Check if payroll_payrollsettings table exists
@@ -147,7 +141,7 @@ try:
         table_exists = cursor.fetchone()[0]
     
     if not table_exists:
-        print("  Creating payroll tables from models...", flush=True)
+        print("  Payroll tables don't exist - creating with syncdb...", flush=True)
         # Restore dependencies so models can load properly
         with open(payroll_migration_path, 'r') as f:
             content = f.read()
@@ -156,8 +150,16 @@ try:
             f.write(restored_content)
         
         # Use syncdb to create tables from models without running migrations
-        call_command('migrate', '--run-syncdb', '--noinput', verbosity=0)
+        # This bypasses migration validation and creates tables directly
+        call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
         print("  ✓ Payroll tables created via syncdb", flush=True)
+        
+        # Now mark payroll migrations as applied (fake them)
+        try:
+            call_command('migrate', 'payroll', '--fake', '--noinput', verbosity=0)
+            print("  ✓ Payroll migrations marked as applied", flush=True)
+        except Exception as fake_err:
+            print(f"  ⚠ Could not fake migrations (non-critical): {fake_err}", flush=True)
     else:
         print("  ✓ Payroll tables already exist", flush=True)
     
