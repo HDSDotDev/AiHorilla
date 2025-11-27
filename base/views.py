@@ -243,7 +243,10 @@ def load_demo_database(request):
                 try:
                     # Import and run Philippines demo loader
                     import sys
+                    import logging
                     from pathlib import Path
+                    
+                    logger = logging.getLogger(__name__)
                     
                     # Add project root to path
                     project_root = Path(settings.BASE_DIR)
@@ -251,12 +254,15 @@ def load_demo_database(request):
                         sys.path.insert(0, str(project_root))
                     
                     # Import the Philippines demo loader
+                    logger.info("Importing Philippines demo loader...")
                     from load_philippines_demo import load_philippines_demo
                     
                     # Run the demo data generator (40 employees by default)
+                    logger.info("Starting demo data generation (40 employees)...")
                     success = load_philippines_demo(num_employees=40)
                     
                     if success:
+                        logger.info("Demo data loaded successfully!")
                         messages.success(
                             request, 
                             _("Philippines demo data loaded successfully! "
@@ -264,18 +270,29 @@ def load_demo_database(request):
                               "Login with any employee username and password: Demo@2025")
                         )
                     else:
+                        logger.error("Demo data loading returned False")
                         messages.error(
                             request, 
-                            _("Failed to load demo data. Please check the server logs for details.")
+                            _("Failed to load demo data. The generator returned an error. Check server logs.")
                         )
                         
+                except ImportError as e:
+                    import traceback
+                    error_details = traceback.format_exc()
+                    logger.error(f"Import error: {error_details}")
+                    print(f"[IMPORT ERROR] {error_details}", flush=True)
+                    messages.error(
+                        request, 
+                        f"Import error: {str(e)}. Module might be missing or has syntax errors."
+                    )
                 except Exception as e:
                     import traceback
                     error_details = traceback.format_exc()
-                    print(f"[ERROR] Demo data loading failed: {error_details}")
+                    logger.error(f"Demo data loading failed: {error_details}")
+                    print(f"[ERROR] Demo data loading failed:\n{error_details}", flush=True)
                     messages.error(
                         request, 
-                        _(f"An error occurred while loading demo data: {str(e)}")
+                        f"Error: {str(e)}"
                     )
             else:
                 messages.error(request, _("Database Authentication Failed"))
