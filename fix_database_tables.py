@@ -90,45 +90,27 @@ if len(missing) > 0:
     print("  CREATING ALL MISSING TABLES")
     print("=" * 80)
     
-    print("\nStep 1: Flushing migration history...")
+    print("\nStep 1: NUCLEAR RESET - Deleting ALL migration records...")
     try:
-        # Clear all migration records to start fresh
         with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM django_migrations WHERE app NOT IN ('contenttypes', 'auth', 'admin', 'sessions')")
+            cursor.execute("DELETE FROM django_migrations")
             deleted = cursor.rowcount
-            print(f"✓ Deleted {deleted} migration records")
+            connection.commit()
+            print(f"✓ Deleted {deleted} migration records (COMPLETE RESET)")
     except Exception as e:
         print(f"⚠ Could not clear migration history: {e}")
     
-    print("\nStep 2: Applying migrations properly (migrate, not syncdb)...")
-    apps_to_migrate = [
-        'base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk',
-        'payroll', 'recruitment', 'pms', 'onboarding', 'offboarding',
-        'project', 'handbook', 'notifications', 'horilla_audit',
-        'horilla_views', 'horilla_widgets', 'horilla_documents',
-        'horilla_automations', 'biometric', 'geofencing', 'facedetection',
-        'horilla_backup', 'horilla_crumbs', 'horilla_api', 'accessibility',
-        'horilla_ldap', 'outlook_auth', 'dynamic_fields', 'report'
-    ]
+    print("\nStep 2: Running FULL migrate (no app filter)...")
+    print("   This applies ALL migrations from scratch - creates all tables")
+    print("   Takes 2-3 minutes...")
+    try:
+        call_command('migrate', '--noinput', verbosity=2)
+        print("\n✓ Full migration completed")
+    except Exception as e:
+        print(f"\n⚠ Migration error: {e}")
+        print("   Continuing to verify...")
     
-    for app in apps_to_migrate:
-        try:
-            print(f"  {app}...", end=' ', flush=True)
-            call_command('migrate', app, '--noinput', verbosity=0)
-            print("✓")
-        except Exception as e:
-            error_str = str(e).lower()
-            if 'no such table' in error_str or 'does not exist' in error_str:
-                # Try with --fake-initial to skip failed migrations
-                try:
-                    call_command('migrate', app, '--fake-initial', '--noinput', verbosity=0)
-                    print("✓ (faked)")
-                except:
-                    print(f"❌")
-            else:
-                print(f"⚠")
-    
-    print("\nStep 3: Verifying table creation...")
+    print("\nStep 3: Verifying tables were created...")
     with connection.cursor() as cursor:
         placeholders = ', '.join([f"'{table}'" for table in critical_tables])
         cursor.execute(f"""
@@ -142,19 +124,11 @@ if len(missing) > 0:
     still_missing = set(critical_tables) - now_existing
     
     if still_missing:
-        print(f"\n❌ STILL MISSING {len(still_missing)} TABLES:")
+        print(f"\n❌ STILL MISSING {len(still_missing)} TABLES AFTER FULL MIGRATE:")
         for table in sorted(still_missing):
             print(f"  ❌ {table}")
-        
-        print("\nStep 4: Forcing migrations with --fake-initial for problem apps...")
-        problem_apps = ['base', 'employee', 'leave', 'payroll', 'asset', 'attendance', 'helpdesk']
-        for app in problem_apps:
-            try:
-                print(f"  Force {app}...", end=' ', flush=True)
-                call_command('migrate', app, '--fake-initial', '--noinput', verbosity=0)
-                print("✓")
-            except Exception as e:
-                print(f"❌ {str(e)[:50]}")
+        print("\n⚠️  Full migrate completed but tables not created!")
+        print("   This indicates broken migration files or database issues.")
     else:
         print("\n✅ ALL CRITICAL TABLES NOW EXIST!")
 
