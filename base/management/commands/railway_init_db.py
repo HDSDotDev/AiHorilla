@@ -26,17 +26,46 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"✗ Database connection failed: {e}"))
             sys.exit(1)
         
-        # Run migrations
+        # Run migrations in correct order to avoid dependency issues
         self.stdout.write("\n[1/4] Running database migrations...")
+        
+        # Migrate apps in dependency order
+        migration_order = [
+            'contenttypes',
+            'auth',
+            'admin',
+            'sessions',
+            'base',
+            'employee',      # Must come before payroll
+            'leave',
+            'asset',
+            'attendance',
+            'payroll',       # Depends on employee
+            'pms',
+            'recruitment',
+            'onboarding',
+        ]
+        
         try:
-            call_command('migrate', '--noinput', verbosity=2)
-            self.stdout.write(self.style.SUCCESS("✓ Migrations completed"))
+            for app in migration_order:
+                self.stdout.write(f"  Migrating {app}...")
+                try:
+                    call_command('migrate', app, '--noinput', verbosity=0)
+                    self.stdout.write(self.style.SUCCESS(f"    ✓ {app}"))
+                except Exception as app_error:
+                    self.stdout.write(self.style.WARNING(f"    ⚠ {app}: {app_error}"))
+            
+            # Migrate any remaining apps
+            self.stdout.write("  Migrating remaining apps...")
+            call_command('migrate', '--noinput', verbosity=0)
+            self.stdout.write(self.style.SUCCESS("✓ All migrations completed"))
+            
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"✗ Migration failed: {e}"))
-            # Try with syncdb
+            # Try with syncdb as fallback
             self.stdout.write("Trying with --run-syncdb...")
             try:
-                call_command('migrate', '--run-syncdb', '--noinput', verbosity=2)
+                call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
                 self.stdout.write(self.style.SUCCESS("✓ Migrations completed with syncdb"))
             except Exception as e2:
                 self.stdout.write(self.style.ERROR(f"✗ Syncdb also failed: {e2}"))
