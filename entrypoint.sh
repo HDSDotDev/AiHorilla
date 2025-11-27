@@ -22,10 +22,26 @@ echo "DATABASE_URL: ${DATABASE_URL:+SET (PostgreSQL)} ${DATABASE_URL:-NOT SET (w
 # Check if DATABASE_URL is set (PostgreSQL on Railway)
 if [ -n "$DATABASE_URL" ]; then
     echo "✓ PostgreSQL detected - running full initialization"
-    echo ">>> Executing railway_init_db command..."
     
+    # Test Python is working
+    echo ">>> Testing Python..."
+    python3 --version 2>&1 || echo "ERROR: Python not found"
+    
+    # Test manage.py exists
+    echo ">>> Checking manage.py..."
+    ls -la manage.py 2>&1 || echo "ERROR: manage.py not found"
+    
+    # Try to import Django
+    echo ">>> Testing Django import..."
+    python3 -c "import django; print(f'Django version: {django.get_version()}')" 2>&1 || echo "ERROR: Django import failed"
+    
+    # Show what railway_init_db command exists
+    echo ">>> Checking railway_init_db command..."
+    python3 manage.py help railway_init_db 2>&1 || echo "ERROR: railway_init_db command not found"
+    
+    echo ">>> Executing railway_init_db command..."
     set +e
-    python3 manage.py railway_init_db 2>&1
+    python3 -u manage.py railway_init_db 2>&1
     INIT_EXIT_CODE=$?
     set -e
     
