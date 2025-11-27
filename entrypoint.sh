@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e  # Exit on error (will be temporarily disabled for migration attempts)
 
 echo "=== Starting Horilla Deployment ==="
 
@@ -16,16 +17,28 @@ echo "Step 1: Initializing database..."
 # Run migrations with fallback strategies
 echo "Running migrations..."
 
-# Try standard migration first
-if python3 manage.py migrate --noinput 2>&1; then
+# Try standard migration first - show output
+set +e  # Don't exit on error
+python3 manage.py migrate --noinput
+MIGRATE_EXIT_CODE=$?
+set -e
+
+if [ $MIGRATE_EXIT_CODE -eq 0 ]; then
     echo "✓ Migrations completed successfully"
 else
-    echo "⚠ Standard migration had issues, trying --run-syncdb..."
-    if python3 manage.py migrate --run-syncdb --noinput 2>&1; then
+    echo "⚠ Standard migration failed with exit code $MIGRATE_EXIT_CODE"
+    echo "Trying --run-syncdb..."
+    
+    set +e
+    python3 manage.py migrate --run-syncdb --noinput
+    SYNCDB_EXIT_CODE=$?
+    set -e
+    
+    if [ $SYNCDB_EXIT_CODE -eq 0 ]; then
         echo "✓ Migrations completed with --run-syncdb"
     else
-        echo "⚠ Using --fake-initial as fallback..."
-        python3 manage.py migrate --fake-initial --noinput 2>&1 || echo "⚠ Some migrations may have failed"
+        echo "⚠ Syncdb also failed. Trying --fake-initial..."
+        python3 manage.py migrate --fake-initial --noinput || echo "⚠ Migration failed - database may be in inconsistent state"
     fi
 fi
 
