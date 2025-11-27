@@ -15,32 +15,49 @@ fi
 
 echo "Step 1: Initializing database..."
 # Run migrations with fallback strategies
-echo "Running migrations..."
+echo "=== STARTING MIGRATIONS ==="
+echo "DATABASE_URL status: ${DATABASE_URL:+SET}"
+echo "Current directory: $(pwd)"
+echo "Python version: $(python3 --version)"
 
 # Try standard migration first - show output
 set +e  # Don't exit on error
-python3 manage.py migrate --noinput
+echo ">>> Executing: python3 manage.py migrate --noinput"
+python3 manage.py migrate --noinput 2>&1
 MIGRATE_EXIT_CODE=$?
+echo ">>> Migration exit code: $MIGRATE_EXIT_CODE"
 set -e
 
 if [ $MIGRATE_EXIT_CODE -eq 0 ]; then
-    echo "✓ Migrations completed successfully"
+    echo "✓✓✓ MIGRATIONS COMPLETED SUCCESSFULLY ✓✓✓"
 else
-    echo "⚠ Standard migration failed with exit code $MIGRATE_EXIT_CODE"
-    echo "Trying --run-syncdb..."
+    echo "⚠⚠⚠ STANDARD MIGRATION FAILED (exit code: $MIGRATE_EXIT_CODE) ⚠⚠⚠"
+    echo ">>> Trying --run-syncdb..."
     
     set +e
-    python3 manage.py migrate --run-syncdb --noinput
+    echo ">>> Executing: python3 manage.py migrate --run-syncdb --noinput"
+    python3 manage.py migrate --run-syncdb --noinput 2>&1
     SYNCDB_EXIT_CODE=$?
+    echo ">>> Syncdb exit code: $SYNCDB_EXIT_CODE"
     set -e
     
     if [ $SYNCDB_EXIT_CODE -eq 0 ]; then
-        echo "✓ Migrations completed with --run-syncdb"
+        echo "✓✓✓ MIGRATIONS COMPLETED WITH --run-syncdb ✓✓✓"
     else
-        echo "⚠ Syncdb also failed. Trying --fake-initial..."
-        python3 manage.py migrate --fake-initial --noinput || echo "⚠ Migration failed - database may be in inconsistent state"
+        echo "⚠⚠⚠ SYNCDB ALSO FAILED (exit code: $SYNCDB_EXIT_CODE) ⚠⚠⚠"
+        echo ">>> Trying --fake-initial as last resort..."
+        set +e
+        python3 manage.py migrate --fake-initial --noinput 2>&1
+        FAKE_EXIT_CODE=$?
+        echo ">>> Fake-initial exit code: $FAKE_EXIT_CODE"
+        set -e
+        
+        if [ $FAKE_EXIT_CODE -ne 0 ]; then
+            echo "❌❌❌ ALL MIGRATION ATTEMPTS FAILED ❌❌❌"
+        fi
     fi
 fi
+echo "=== MIGRATIONS PHASE COMPLETE ==="
 
 echo "Step 2: Collecting static files..."
 python3 manage.py collectstatic --noinput --clear || {
