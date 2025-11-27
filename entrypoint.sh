@@ -60,6 +60,21 @@ if [ -n "$DATABASE_URL" ]; then
     else
         echo "✓ Initialization successful"
     fi
+    
+    # Verify all tables exist, create if missing
+    echo ""
+    echo ">>> Verifying database tables..."
+    set +e
+    python3 -u fix_database_tables.py 2>&1
+    FIX_EXIT_CODE=$?
+    set -e
+    
+    if [ $FIX_EXIT_CODE -ne 0 ]; then
+        echo "❌ Table verification failed - database may be incomplete"
+        echo "Demo data loading may not work"
+    else
+        echo "✓ All database tables verified"
+    fi
 else
     echo "⚠️  WARNING: No DATABASE_URL - using SQLite (data will NOT persist on Railway!)"
     echo "⚠️  Please add a PostgreSQL database in Railway dashboard"
