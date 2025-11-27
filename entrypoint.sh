@@ -9,6 +9,14 @@ echo "=== Starting Horilla Deployment ==="
 # Disable schedulers during migration
 export SKIP_SCHEDULERS=1
 
+# Mark Railway environment for Django settings
+export RAILWAY_ENVIRONMENT=1
+
+# Set Railway public domain if available
+if [ -n "$RAILWAY_PUBLIC_DOMAIN" ]; then
+    echo "✓ Railway domain detected: $RAILWAY_PUBLIC_DOMAIN"
+fi
+
 # Railway PostgreSQL is ready immediately, skip wait if DATABASE_URL is set
 if [ -z "$DATABASE_URL" ]; then
     echo "⚠ DATABASE_URL not set, using SQLite or custom database config"
