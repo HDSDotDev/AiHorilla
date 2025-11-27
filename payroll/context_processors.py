@@ -4,6 +4,7 @@ context_processor.py
 This module is used to register context processor`
 """
 
+from django.db.utils import OperationalError, ProgrammingError
 from employee.models import Employee
 from payroll.models import tax_models as models
 from payroll.models.models import Deduction
