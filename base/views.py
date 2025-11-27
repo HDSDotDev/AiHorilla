@@ -236,42 +236,47 @@ def initialize_database_condition():
 
 
 def load_demo_database(request):
+    """Load Philippines-focused demo data with comprehensive employee information"""
     if initialize_database_condition():
         if request.method == "POST":
             if request.POST.get("load_data_password") == DB_INIT_PASSWORD:
-                data_files = [
-                    "user_data.json",
-                    "employee_info_data.json",
-                    "base_data.json",
-                    "work_info_data.json",
-                ]
-                optional_apps = [
-                    ("attendance", "attendance_data.json"),
-                    ("leave", "leave_data.json"),
-                    ("asset", "asset_data.json"),
-                    ("recruitment", "recruitment_data.json"),
-                    ("onboarding", "onboarding_data.json"),
-                    ("offboarding", "offboarding_data.json"),
-                    ("pms", "pms_data.json"),
-                    ("payroll", "payroll_data.json"),
-                    ("payroll", "payroll_loanaccount_data.json"),
-                    ("project", "project_data.json"),
-                ]
-
-                # Add data files for installed apps
-                data_files += [
-                    file for app, file in optional_apps if apps.is_installed(app)
-                ]
-
-                # Load all data files
-                for file in data_files:
-                    file_path = path.join(settings.BASE_DIR, "load_data", file)
-                    try:
-                        call_command("loaddata", file_path)
-                    except Exception as e:
-                        messages.error(request, f"An error occured : {e}")
-
-                messages.success(request, _("Database loaded successfully."))
+                try:
+                    # Import and run Philippines demo loader
+                    import sys
+                    from pathlib import Path
+                    
+                    # Add project root to path
+                    project_root = Path(settings.BASE_DIR)
+                    if str(project_root) not in sys.path:
+                        sys.path.insert(0, str(project_root))
+                    
+                    # Import the Philippines demo loader
+                    from load_philippines_demo import load_philippines_demo
+                    
+                    # Run the demo data generator (40 employees by default)
+                    success = load_philippines_demo(num_employees=40)
+                    
+                    if success:
+                        messages.success(
+                            request, 
+                            _("Philippines demo data loaded successfully! "
+                              "40 employees created with attendance data for Sep & Oct 2025. "
+                              "Login with any employee username and password: Demo@2025")
+                        )
+                    else:
+                        messages.error(
+                            request, 
+                            _("Failed to load demo data. Please check the server logs for details.")
+                        )
+                        
+                except Exception as e:
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"[ERROR] Demo data loading failed: {error_details}")
+                    messages.error(
+                        request, 
+                        _(f"An error occurred while loading demo data: {str(e)}")
+                    )
             else:
                 messages.error(request, _("Database Authentication Failed"))
         return redirect(home)
