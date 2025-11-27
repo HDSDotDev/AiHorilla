@@ -99,105 +99,53 @@ except Exception as e:
     print(f"⚠ Could not modify migration file: {e}", flush=True)
     print("  Continuing anyway...", flush=True)
 
-print("Running migrations in strategic phases...", flush=True)
+print("Running database migrations...", flush=True)
 
-# Phase 1: Migrate core Django and third-party apps
-print("Phase 1: Core Django apps...", flush=True)
-try:
-    for app in ['contenttypes', 'auth', 'admin', 'sessions']:
-        call_command('migrate', app, '--noinput', verbosity=0)
-    print("✓ Phase 1 (core) completed", flush=True)
-except Exception as e:
-    print(f"⚠ Phase 1 warning: {e}", flush=True)
+from django.db import connection
 
-# Phase 2: Migrate Horilla base apps that payroll depends on
-print("Phase 2: Base Horilla apps (base, employee, leave, etc.)...", flush=True)
-try:
-    from django.db import connection
-    
-    # First check if tables actually exist (migrations might be faked)
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT table_name FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name IN ('base_company', 'employee_employee', 'leave_leavetype')
-            ORDER BY table_name;
-        """)
-        existing_tables = [row[0] for row in cursor.fetchall()]
-    
-    print(f"  Existing core tables: {existing_tables if existing_tables else 'NONE'}", flush=True)
-    
-    if len(existing_tables) < 3:
-        print("  ⚠ Core tables missing! Running full migrate to create tables...", flush=True)
-        # Delete ALL migration records to force fresh start
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("DELETE FROM django_migrations")
-                deleted = cursor.rowcount
-                connection.commit()
-                print(f"  ✓ Deleted {deleted} migration records (fresh start)", flush=True)
-        except Exception as del_err:
-            print(f"  ⚠ Could not clear migrations: {del_err}", flush=True)
-        
-        # Now run full migrate - this will apply all migrations from scratch
-        print("  Running full migrate (creates all tables)...", flush=True)
-        call_command('migrate', '--noinput', verbosity=1)
-        print("  ✓ All tables created via migrate", flush=True)
-    else:
-        print("  Core tables exist, running normal migrations...", flush=True)
-        base_apps = ['base', 'employee', 'leave', 'asset', 'attendance', 'horilla_audit']
-        for app in base_apps:
-            try:
-                call_command('migrate', app, '--noinput', verbosity=0)
-                print(f"  ✓ {app}", flush=True)
-            except Exception as e:
-                print(f"  ⚠ {app}: {e}", flush=True)
-    
-    print("✓ Phase 2 (base apps) completed", flush=True)
-except Exception as e:
-    print(f"⚠ Phase 2 warning: {e}", flush=True)
+# Check if core tables exist
+print("Checking database state...", flush=True)
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT table_name FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('base_company', 'employee_employee', 'leave_leavetype')
+        ORDER BY table_name;
+    """)
+    existing_tables = [row[0] for row in cursor.fetchall()]
 
-# Phase 3: Create payroll tables using syncdb (bypasses migration validation)
-print("Phase 3: Payroll tables (using direct syncdb)...", flush=True)
-table_exists = False
-try:
-    from django.db import connection
+print(f"  Existing core tables: {existing_tables if existing_tables else 'NONE'}", flush=True)
+
+if len(existing_tables) < 3:
+    print("  ⚠ Core tables missing! Running fresh migration...", flush=True)
     
-    # Check if payroll_payrollsettings table exists
+    # Delete ALL migration records for clean start
     try:
         with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'payroll_payrollsettings'
-                );
-            """)
-            table_exists = cursor.fetchone()[0]
-            print(f"  Table check result: payroll_payrollsettings exists = {table_exists}", flush=True)
-    except Exception as check_err:
-        print(f"  ⚠ Could not check table existence: {check_err}", flush=True)
-        print("  Assuming tables don't exist...", flush=True)
+            cursor.execute("DELETE FROM django_migrations")
+            deleted = cursor.rowcount
+            connection.commit()
+            print(f"  ✓ Deleted {deleted} migration records", flush=True)
+    except Exception as del_err:
+        print(f"  ⚠ Could not clear migrations: {del_err}", flush=True)
     
-    if not table_exists:
-        print("  ✓ Payroll tables should have been created in Phase 2 migrate", flush=True)
-        print("  (Nothing to do - Phase 2 applied all migrations)", flush=True)
-    else:
-        print("  ✓ Payroll tables already exist", flush=True)
-    
-    print("✓ Phase 3 (payroll) completed", flush=True)
-except Exception as e:
-    print(f"⚠ Phase 3 warning: {e}", flush=True)
+    # Run full migrate to create all tables
+    print("  Running full migrate (this creates all tables)...", flush=True)
+    try:
+        call_command('migrate', '--noinput', verbosity=1)
+        print("  ✓ All migrations applied", flush=True)
+    except Exception as e:
+        print(f"  ⚠ Migration warning: {e}", flush=True)
+        print("  Continuing anyway...", flush=True)
+else:
+    print("  Core tables exist, running incremental migrations...", flush=True)
+    try:
+        call_command('migrate', '--noinput', verbosity=0)
+        print("  ✓ Migrations completed", flush=True)
+    except Exception as e:
+        print(f"  ⚠ Migration warning: {e}", flush=True)
 
-# Phase 4: Migrate any remaining apps
-print("Phase 4: Remaining apps...", flush=True)
-try:
-    call_command('migrate', '--noinput', verbosity=0)
-    print("✓ Phase 4 completed", flush=True)
-except Exception as e:
-    print(f"⚠ Phase 4 warning: {e}", flush=True)
-
-print("✓ All migrations completed", flush=True)
+print("✓ Migrations completed", flush=True)
 
 print("\n=== Creating Admin User ===", flush=True)
 try:
