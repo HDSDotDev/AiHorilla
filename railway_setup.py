@@ -27,6 +27,13 @@ print("✓ Database initialization in app ready() methods disabled", flush=True)
 print("Setting up Django...", flush=True)
 print("  (This may take 30-60 seconds on first run)", flush=True)
 
+import signal
+
+def timeout_handler(signum, frame):
+    print("✗ Django setup timed out after 60 seconds!", flush=True)
+    print("  This usually means an app is accessing the database in its ready() method", flush=True)
+    sys.exit(1)
+
 try:
     # Set connection timeout before Django setup
     os.environ['DATABASE_CONNECT_TIMEOUT'] = '10'
@@ -34,9 +41,19 @@ try:
     # Prevent database checks during setup
     os.environ['DJANGO_SKIP_DB_CHECK'] = '1'
     
+    # Set 60-second timeout for django.setup()
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(60)
+    
+    print("  Calling django.setup()...", flush=True)
     django.setup()
+    
+    # Cancel the alarm
+    signal.alarm(0)
+    
     print("✓ Django setup complete", flush=True)
 except Exception as e:
+    signal.alarm(0)  # Cancel alarm on error
     print(f"✗ Django setup failed: {type(e).__name__}: {e}", flush=True)
     import traceback
     traceback.print_exc()
