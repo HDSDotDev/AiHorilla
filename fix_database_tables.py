@@ -100,14 +100,33 @@ if len(missing) > 0:
     except Exception as e:
         print(f"⚠ Could not clear migration history: {e}")
     
-    print("\nStep 2: Running full migrate with --run-syncdb...")
-    try:
-        # This should create ALL tables from ALL models
-        call_command('migrate', '--run-syncdb', '--noinput', verbosity=2)
-        print("✓ Syncdb completed")
-    except Exception as e:
-        print(f"⚠ Syncdb encountered errors: {e}")
-        print("Continuing anyway...")
+    print("\nStep 2: Applying migrations properly (migrate, not syncdb)...")
+    apps_to_migrate = [
+        'base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk',
+        'payroll', 'recruitment', 'pms', 'onboarding', 'offboarding',
+        'project', 'handbook', 'notifications', 'horilla_audit',
+        'horilla_views', 'horilla_widgets', 'horilla_documents',
+        'horilla_automations', 'biometric', 'geofencing', 'facedetection',
+        'horilla_backup', 'horilla_crumbs', 'horilla_api', 'accessibility',
+        'horilla_ldap', 'outlook_auth', 'dynamic_fields', 'report'
+    ]
+    
+    for app in apps_to_migrate:
+        try:
+            print(f"  {app}...", end=' ', flush=True)
+            call_command('migrate', app, '--noinput', verbosity=0)
+            print("✓")
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'no such table' in error_str or 'does not exist' in error_str:
+                # Try with --fake-initial to skip failed migrations
+                try:
+                    call_command('migrate', app, '--fake-initial', '--noinput', verbosity=0)
+                    print("✓ (faked)")
+                except:
+                    print(f"❌")
+            else:
+                print(f"⚠")
     
     print("\nStep 3: Verifying table creation...")
     with connection.cursor() as cursor:
@@ -127,15 +146,15 @@ if len(missing) > 0:
         for table in sorted(still_missing):
             print(f"  ❌ {table}")
         
-        print("\nStep 4: Attempting individual app migrations...")
-        apps_to_migrate = ['base', 'employee', 'leave', 'payroll', 'asset', 'attendance', 'helpdesk']
-        for app in apps_to_migrate:
+        print("\nStep 4: Forcing migrations with --fake-initial for problem apps...")
+        problem_apps = ['base', 'employee', 'leave', 'payroll', 'asset', 'attendance', 'helpdesk']
+        for app in problem_apps:
             try:
-                print(f"  Migrating {app}...", end=' ', flush=True)
-                call_command('migrate', app, '--run-syncdb', '--noinput', verbosity=0)
+                print(f"  Force {app}...", end=' ', flush=True)
+                call_command('migrate', app, '--fake-initial', '--noinput', verbosity=0)
                 print("✓")
             except Exception as e:
-                print(f"⚠ {e}")
+                print(f"❌ {str(e)[:50]}")
     else:
         print("\n✅ ALL CRITICAL TABLES NOW EXIST!")
 
