@@ -62,27 +62,39 @@ except Exception as e:
 
 print("\n=== Running Migrations ===", flush=True)
 
-# Fix circular dependency: payroll depends on employee but both are initial migrations
-print("Fixing circular dependency in payroll migration...", flush=True)
+# Fix circular dependencies: payroll depends on multiple apps' initial migrations
+print("Fixing circular dependencies in payroll migration...", flush=True)
 import re
 payroll_migration_path = '/app/payroll/migrations/0001_initial.py'
 try:
     with open(payroll_migration_path, 'r') as f:
         content = f.read()
     
-    # Comment out the employee dependency line to break circular dependency
-    if "('employee', '0001_initial')" in content:
+    # Comment out ALL problematic dependency lines to break circular dependencies
+    # Keep only AUTH_USER_MODEL dependency which doesn't cause issues
+    dependencies_to_disable = [
+        r"(\s*)(\('employee', '0001_initial'\),)",
+        r"(\s*)(\('base', '0002_initial'\),)",
+        r"(\s*)(\('horilla_audit', '0001_initial'\),)",
+        r"(\s*)(\('leave', '0001_initial'\),)",
+        r"(\s*)(\('asset', '0002_initial'\),)",
+        r"(\s*)(\('attendance', '0002_initial'\),)",
+    ]
+    
+    modified_content = content
+    for pattern in dependencies_to_disable:
         modified_content = re.sub(
-            r"(\s*)(\('employee', '0001_initial'\),)",
-            r"\1# \2  # Temporarily disabled to break circular dependency",
-            content
+            pattern,
+            r"\1# \2  # Disabled to break circular dependency",
+            modified_content
         )
-        
+    
+    if modified_content != content:
         with open(payroll_migration_path, 'w') as f:
             f.write(modified_content)
-        print("✓ Circular dependency temporarily disabled", flush=True)
+        print("✓ All circular dependencies temporarily disabled", flush=True)
     else:
-        print("✓ Migration already fixed or dependency not found", flush=True)
+        print("✓ Migrations already fixed", flush=True)
 except Exception as e:
     print(f"⚠ Could not modify migration file: {e}", flush=True)
     print("  Continuing anyway...", flush=True)
