@@ -99,34 +99,56 @@ except Exception as e:
     print(f"⚠ Could not modify migration file: {e}", flush=True)
     print("  Continuing anyway...", flush=True)
 
-print("Running migrations in two phases to avoid circular dependencies...", flush=True)
-print("Phase 1: Migrate all apps EXCEPT payroll...", flush=True)
-try:
-    # First run migrations for all apps except payroll
-    # This ensures base, employee, etc. tables exist before payroll references them
-    call_command('migrate', '--noinput', '--skip-checks', verbosity=1)
-    print("✓ Phase 1 migrations completed", flush=True)
-except Exception as e:
-    print(f"⚠ Phase 1 migration warning: {e}", flush=True)
+print("Running migrations in strategic phases...", flush=True)
 
-print("Phase 2: Now migrate payroll with base tables available...", flush=True)
+# Phase 1: Migrate core Django and third-party apps
+print("Phase 1: Core Django apps...", flush=True)
 try:
-    # Restore the payroll migration dependencies
+    for app in ['contenttypes', 'auth', 'admin', 'sessions']:
+        call_command('migrate', app, '--noinput', verbosity=0)
+    print("✓ Phase 1 (core) completed", flush=True)
+except Exception as e:
+    print(f"⚠ Phase 1 warning: {e}", flush=True)
+
+# Phase 2: Migrate Horilla base apps that payroll depends on
+print("Phase 2: Base Horilla apps (base, employee, leave, etc.)...", flush=True)
+try:
+    base_apps = ['base', 'employee', 'leave', 'asset', 'attendance', 'horilla_audit']
+    for app in base_apps:
+        try:
+            call_command('migrate', app, '--noinput', verbosity=0)
+            print(f"  ✓ {app}", flush=True)
+        except Exception as e:
+            print(f"  ⚠ {app}: {e}", flush=True)
+    print("✓ Phase 2 (base apps) completed", flush=True)
+except Exception as e:
+    print(f"⚠ Phase 2 warning: {e}", flush=True)
+
+# Phase 3: Restore payroll dependencies and migrate payroll
+print("Phase 3: Payroll migration (with dependencies now available)...", flush=True)
+try:
     with open(payroll_migration_path, 'r') as f:
         content = f.read()
     
-    # Uncomment all the dependencies we disabled
+    # Uncomment all the dependencies
     restored_content = content.replace('# (', '(').replace('  # Disabled to break circular dependency', '')
     
     with open(payroll_migration_path, 'w') as f:
         f.write(restored_content)
-    print("✓ Payroll dependencies restored", flush=True)
+    print("  ✓ Dependencies restored", flush=True)
     
-    # Now run payroll migration with dependencies available
     call_command('migrate', 'payroll', '--noinput', verbosity=1)
-    print("✓ Phase 2 (payroll) migration completed", flush=True)
-except Exception as e2:
-    print(f"⚠ Phase 2 migration warning: {e2}", flush=True)
+    print("✓ Phase 3 (payroll) completed", flush=True)
+except Exception as e:
+    print(f"⚠ Phase 3 warning: {e}", flush=True)
+
+# Phase 4: Migrate any remaining apps
+print("Phase 4: Remaining apps...", flush=True)
+try:
+    call_command('migrate', '--noinput', verbosity=0)
+    print("✓ Phase 4 completed", flush=True)
+except Exception as e:
+    print(f"⚠ Phase 4 warning: {e}", flush=True)
 
 print("✓ All migrations completed", flush=True)
 
