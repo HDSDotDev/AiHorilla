@@ -4,6 +4,7 @@ scheduler.py
 This module is used to register scheduled tasks
 """
 
+import os
 import sys
 from datetime import date, timedelta
 
@@ -17,12 +18,17 @@ def notify_expiring_assets():
     """
     Finds all Expiring Assets and send a notification on the notify_before date.
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from asset.models import Asset
 
-    today = date.today()
-    assets = Asset.objects.all()
+    try:
+        today = date.today()
+        assets = Asset.objects.all()
+    except (OperationalError, ProgrammingError) as e:
+        print(f"notify_expiring_assets: Database not ready - {e}")
+        return
 
     # Cache bot & superuser once
     bot = User.objects.filter(username="Horilla Bot").only("id").first()
@@ -58,12 +64,17 @@ def notify_expiring_documents():
     """
     Finds all Expiring Documents and send a notification on the notify_before date.
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from horilla_documents.models import Document
 
-    today = date.today()
-    documents = Document.objects.all()
+    try:
+        today = date.today()
+        documents = Document.objects.all()
+    except (OperationalError, ProgrammingError) as e:
+        print(f"notify_expiring_documents: Database not ready - {e}")
+        return
     bot = User.objects.filter(username="Horilla Bot").first()
     for document in documents:
         if document.expiry_date:
@@ -95,8 +106,11 @@ def notify_expiring_documents():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(notify_expiring_assets, "interval", days=1)
-    scheduler.add_job(notify_expiring_documents, "interval", hours=4)
-    scheduler.start()
+) and not os.getenv("SKIP_SCHEDULERS"):
+    try:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(notify_expiring_assets, "interval", days=1)
+        scheduler.add_job(notify_expiring_documents, "interval", hours=4)
+        scheduler.start()
+    except Exception as e:
+        print(f"⚠️  Failed to start asset scheduler: {e}")

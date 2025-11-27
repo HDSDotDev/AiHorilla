@@ -8,11 +8,17 @@ from dateutil.relativedelta import relativedelta
 
 
 def leave_reset():
+    from django.db.utils import OperationalError, ProgrammingError
     from leave.models import LeaveType
 
-    today = datetime.now()
-    today_date = today.date()
-    leave_types = LeaveType.objects.filter(reset=True)
+    try:
+        today = datetime.now()
+        today_date = today.date()
+        leave_types = LeaveType.objects.filter(reset=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"leave_reset: Database not ready - {e}")
+        return
+    
     # Looping through filtered leave types with reset is true
     for leave_type in leave_types:
         # Looping through all available leaves
@@ -46,14 +52,18 @@ def leave_reset():
             leave_type.save()
 
 
+import os
+
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     """
     Initializes and starts background tasks using APScheduler when the server is running.
     """
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(leave_reset, "interval", seconds=20)
-
-    scheduler.start()
+    try:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(leave_reset, "interval", seconds=20)
+        scheduler.start()
+    except Exception as e:
+        print(f"⚠️  Failed to start leave scheduler: {e}")

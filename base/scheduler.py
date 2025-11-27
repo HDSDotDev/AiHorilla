@@ -1,4 +1,5 @@
 import calendar
+import os
 import sys
 from datetime import date, datetime, timedelta
 
@@ -110,9 +111,14 @@ def rotate_work_type():
     This method will identify the based on condition to the rotating shift assign
     and redirect to the chunk method to execute.
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from base.models import RotatingWorkTypeAssign
 
-    rotating_work_types = RotatingWorkTypeAssign.objects.filter(is_active=True)
+    try:
+        rotating_work_types = RotatingWorkTypeAssign.objects.filter(is_active=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"rotate_work_type: Database not ready - {e}")
+        return
     for rotating_work_type in rotating_work_types:
         based_on = rotating_work_type.based_on
         if based_on == "after":
@@ -220,9 +226,14 @@ def rotate_shift():
     This method will identify the based on condition to the rotating shift assign
     and redirect to the chunk method to execute.
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from base.models import RotatingShiftAssign
 
-    rotating_shifts = RotatingShiftAssign.objects.filter(is_active=True)
+    try:
+        rotating_shifts = RotatingShiftAssign.objects.filter(is_active=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"rotate_shift: Database not ready - {e}")
+        return
     today = datetime.now().date()
     r_shifts = rotating_shifts.filter(start_date__lte=today)
     rotating_shifts_modified = None
@@ -254,12 +265,21 @@ def switch_shift():
     """
     This method change employees shift information regards to the shift request
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from base.models import ShiftRequest
 
     today = date.today()
 
+    try:
+        shift_requests = ShiftRequest.objects.filter(
+            canceled=False, approved=True, requested_date__exact=today, shift_changed=False
+        )
+    except (OperationalError, ProgrammingError) as e:
+        print(f"switch_shift: Database not ready - {e}")
+        return
+    
     shift_requests = ShiftRequest.objects.filter(
         canceled=False, approved=True, requested_date__exact=today, shift_changed=False
     )
@@ -293,19 +313,24 @@ def undo_shift():
     """
     This method undo previous employees shift information regards to the shift request
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from base.models import ShiftRequest
 
     today = date.today()
     # here will get all the active shift requests
-    shift_requests = ShiftRequest.objects.filter(
-        canceled=False,
-        approved=True,
-        requested_till__lt=today,
-        is_active=True,
-        shift_changed=True,
-    )
+    try:
+        shift_requests = ShiftRequest.objects.filter(
+            canceled=False,
+            approved=True,
+            requested_till__lt=today,
+            is_active=True,
+            shift_changed=True,
+        )
+    except (OperationalError, ProgrammingError) as e:
+        print(f"undo_shift: Database not ready - {e}")
+        return
     if shift_requests:
         for request in shift_requests:
             work_info = request.employee_id.employee_work_info
@@ -335,11 +360,20 @@ def switch_work_type():
     """
     This method change employees work type information regards to the work type request
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from base.models import WorkTypeRequest
 
     today = date.today()
+    try:
+        work_type_requests = WorkTypeRequest.objects.filter(
+            canceled=False,
+        )
+    except (OperationalError, ProgrammingError) as e:
+        print(f"switch_work_type: Database not ready - {e}")
+        return
+    
     work_type_requests = WorkTypeRequest.objects.filter(
         canceled=False,
         approved=True,
@@ -375,19 +409,24 @@ def undo_work_type():
     """
     This method undo previous employees work type information regards to the work type request
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from django.contrib.auth.models import User
 
     from base.models import WorkTypeRequest
 
     today = date.today()
     # here will get all the active work type requests
-    work_type_requests = WorkTypeRequest.objects.filter(
-        canceled=False,
-        approved=True,
-        requested_till__lt=today,
-        is_active=True,
-        work_type_changed=True,
-    )
+    try:
+        work_type_requests = WorkTypeRequest.objects.filter(
+            canceled=False,
+            approved=True,
+            requested_till__lt=today,
+            is_active=True,
+            work_type_changed=True,
+        )
+    except (OperationalError, ProgrammingError) as e:
+        print(f"undo_work_type: Database not ready - {e}")
+        return
     for request in work_type_requests:
         work_info = request.employee_id.employee_work_info
         # updating employee work information's work type to previous work type
@@ -414,9 +453,14 @@ def undo_work_type():
 
 
 def recurring_holiday():
+    from django.db.utils import OperationalError, ProgrammingError
     from .models import Holidays
 
-    recurring_holidays = Holidays.objects.filter(recurring=True)
+    try:
+        recurring_holidays = Holidays.objects.filter(recurring=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"recurring_holiday: Database not ready - {e}")
+        return
     today = datetime.now()
     # Looping through all recurring holiday
     for recurring_holiday in recurring_holidays:
@@ -438,7 +482,7 @@ def recurring_holiday():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     scheduler = BackgroundScheduler()
 
     # Add jobs with next_run_time set to the end of the previous job

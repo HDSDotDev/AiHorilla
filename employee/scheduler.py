@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 from datetime import timedelta
 
@@ -6,13 +7,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 def update_experience():
+    from django.db.utils import OperationalError, ProgrammingError
     from employee.models import EmployeeWorkInformation
 
     """
     This scheduled task to trigger the experience calculator
     to update the employee work experience
     """
-    queryset = EmployeeWorkInformation.objects.filter(employee_id__is_active=True)
+    try:
+        queryset = EmployeeWorkInformation.objects.filter(employee_id__is_active=True)
+    except (OperationalError, ProgrammingError) as e:
+        print(f"update_experience: Database not ready - {e}")
+        return
+    
     for instance in queryset:
         instance.experience_calculator()
     return
@@ -22,11 +29,17 @@ def block_unblock_disciplinary():
     """
     This scheduled task to trigger the Disciplinary action and take the suspens
     """
+    from django.db.utils import OperationalError, ProgrammingError
     from base.models import EmployeeShiftSchedule
     from employee.models import DisciplinaryAction
     from employee.policies import employee_account_block_unblock
 
-    dis_action = DisciplinaryAction.objects.all()
+    try:
+        dis_action = DisciplinaryAction.objects.all()
+    except (OperationalError, ProgrammingError) as e:
+        print(f"block_unblock_disciplinary: Database not ready - {e}")
+        return
+    
     for dis in dis_action:
 
         if dis.action.block_option:
@@ -135,11 +148,14 @@ def block_unblock_disciplinary():
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
+) and not os.getenv("SKIP_SCHEDULERS"):
     """
     Initializes and starts background tasks using APScheduler when the server is running.
     """
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(update_experience, "interval", hours=4)
-    scheduler.add_job(block_unblock_disciplinary, "interval", seconds=25)
-    scheduler.start()
+    try:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(update_experience, "interval", hours=4)
+        scheduler.add_job(block_unblock_disciplinary, "interval", seconds=25)
+        scheduler.start()
+    except Exception as e:
+        print(f"⚠️  Failed to start employee scheduler: {e}")

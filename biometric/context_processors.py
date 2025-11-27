@@ -27,9 +27,16 @@ def biometric_is_installed(_request):
         the biometric system is installed. The key is 'is_installed', and the value
         is a boolean indicating the installation status.
     """
-    instance = BiometricAttendance.objects.first()
-    if not instance:
-        BiometricAttendance.objects.create(is_installed=False)
+    from django.db import OperationalError, ProgrammingError
+    
+    try:
         instance = BiometricAttendance.objects.first()
-    is_installed = instance.is_installed
+        if not instance:
+            BiometricAttendance.objects.create(is_installed=False)
+            instance = BiometricAttendance.objects.first()
+        is_installed = instance.is_installed
+    except (OperationalError, ProgrammingError):
+        # Tables don't exist yet (during migrations)
+        is_installed = False
+    
     return {"is_installed": is_installed}

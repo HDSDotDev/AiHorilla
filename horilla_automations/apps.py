@@ -51,5 +51,18 @@ class HorillaAutomationConfig(AppConfig):
             ]
         ):
             from horilla_automations.signals import start_automation
+            from django.db import connection
+            from django.db.utils import OperationalError, ProgrammingError
 
-            start_automation()
+            # Check if tables exist before starting automation
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='horilla_automations_mailautomation'"
+                    )
+                    if cursor.fetchone():
+                        start_automation()
+                    else:
+                        print("⚠️  Skipping automation startup: tables not yet created")
+            except (OperationalError, ProgrammingError) as e:
+                print(f"⚠️  Skipping automation startup: {e}")

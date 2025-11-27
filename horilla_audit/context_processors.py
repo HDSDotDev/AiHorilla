@@ -24,10 +24,14 @@ def dynamic_tag(request):
     """
     This method is used to dynamically create history tags
     """
-
-    title = request.POST["title"]
-    title = AuditTag.objects.get_or_create(title=title)
-    return JsonResponse({"id": title[0].id})
+    from django.db import OperationalError, ProgrammingError
+    
+    try:
+        title = request.POST["title"]
+        title = AuditTag.objects.get_or_create(title=title)
+        return JsonResponse({"id": title[0].id})
+    except (OperationalError, ProgrammingError):
+        return JsonResponse({"error": "Database not ready"}, status=503)
 
 
 urlpatterns.append(path("horilla-audit-log", dynamic_tag, name="horilla-audit-log"))
