@@ -48,23 +48,34 @@ def main():
     if missing:
         print(f"   {', '.join(sorted(missing)[:10])}...")
     
-    # 2. Nuclear option - clear ALL migrations and force syncdb
-    print("\n⚠️  CLEARING ALL MIGRATION HISTORY...")
-    cursor.execute("""
-        DELETE FROM django_migrations 
-        WHERE app NOT IN ('contenttypes', 'auth', 'admin', 'sessions')
-    """)
-    deleted = cursor.rowcount
-    print(f"   Deleted {deleted} migration records")
-    connection.commit()
+    # 2. Apply migrations properly (not syncdb - apps have migrations!)
+    print("\n🔨 APPLYING ALL MIGRATIONS TO CREATE TABLES...")
+    apps_to_migrate = [
+        'base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk',
+        'payroll', 'recruitment', 'pms', 'onboarding', 'offboarding',
+        'project', 'handbook', 'notifications', 'horilla_audit',
+        'horilla_views', 'horilla_widgets', 'horilla_documents',
+        'horilla_automations', 'biometric', 'geofencing', 'facedetection',
+        'horilla_backup', 'horilla_crumbs', 'horilla_api', 'accessibility',
+        'horilla_ldap', 'outlook_auth', 'dynamic_fields', 'report'
+    ]
     
-    # 3. Force create ALL tables
-    print("\n🔨 FORCING TABLE CREATION (migrate --run-syncdb)...")
-    try:
-        call_command('migrate', '--run-syncdb', '--noinput', verbosity=2)
-        print("   ✓ Migrate command completed")
-    except Exception as e:
-        print(f"   ⚠️  Error during migrate: {e}")
+    for i, app in enumerate(apps_to_migrate, 1):
+        try:
+            print(f"   [{i:2d}/{len(apps_to_migrate)}] {app:25s} ", end='', flush=True)
+            call_command('migrate', app, '--noinput', verbosity=0)
+            print("✓")
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'no such table' in error_str or 'does not exist' in error_str:
+                # Dependency issue - try with --fake-initial
+                try:
+                    call_command('migrate', app, '--fake-initial', '--noinput', verbosity=0)
+                    print("✓ (faked)")
+                except Exception as e2:
+                    print(f"❌ {str(e2)[:40]}")
+            else:
+                print(f"⚠️  {str(e)[:40]}")
     
     # 4. Verify results
     print("\n🔍 VERIFYING TABLES...")
@@ -83,16 +94,17 @@ def main():
         for table in sorted(still_missing):
             print(f"   - {table}")
         
-        # Try individual app migrations
-        print("\n🔨 TRYING INDIVIDUAL APP MIGRATIONS...")
-        apps_to_try = ['base', 'employee', 'leave', 'attendance', 'asset', 
+        # Try forcing with --fake-initial
+        print("\n🔨 FORCING MIGRATIONS WITH --fake-initial...")
+        problem_apps = ['base', 'employee', 'leave', 'attendance', 'asset', 
                        'helpdesk', 'payroll', 'recruitment', 'pms']
-        for app in apps_to_try:
+        for app in problem_apps:
             try:
-                print(f"   Migrating {app}...")
-                call_command('migrate', app, '--noinput', verbosity=1)
+                print(f"   Forcing {app:20s} ", end='', flush=True)
+                call_command('migrate', app, '--fake-initial', '--noinput', verbosity=0)
+                print("✓")
             except Exception as e:
-                print(f"   ⚠️  {app} failed: {e}")
+                print(f"❌ {str(e)[:50]}")
         
         # Final check
         cursor.execute("""
