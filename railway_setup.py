@@ -119,3 +119,5 @@ except Exception as e:
 
 print("\n=== RAILWAY SETUP COMPLETE ===", flush=True)
 sys.exit(0)
+
+# Force rebuild - 11/27/2025 14:46:04
