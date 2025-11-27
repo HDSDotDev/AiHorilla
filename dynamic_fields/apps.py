@@ -24,6 +24,14 @@ class DynamicFieldsConfig(AppConfig):
 
         from dynamic_fields.models import DynamicField
 
+        # Skip database operations during initial setup
+        import os
+        if os.environ.get('SKIP_DB_INIT_IN_READY'):
+            from django.urls import include, path
+            from base.urls import urlpatterns
+            urlpatterns.append(path("df/", include("dynamic_fields.urls")))
+            return super().ready()
+
         try:
             dynamic_objects = DynamicField.objects.filter()
             # Ensure this logic only runs when the server is started (and only once)

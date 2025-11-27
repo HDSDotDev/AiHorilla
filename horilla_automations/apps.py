@@ -39,6 +39,10 @@ class HorillaAutomationConfig(AppConfig):
         model_choices.append(("pms.models.EmployeeKeyResult", "Employee Key Results"))
         model_choices[:] = list(set(model_choices))  # Update in-place
 
+        # Skip automation during initial setup
+        if os.environ.get('SKIP_DB_INIT_IN_READY'):
+            return
+        
         # Only start automation when running the server
         if not any(
             cmd in sys.argv
@@ -54,13 +58,15 @@ class HorillaAutomationConfig(AppConfig):
             from django.db import connection
             from django.db.utils import OperationalError, ProgrammingError
 
-            # Check if tables exist before starting automation
+            # Check if tables exist before starting automation (PostgreSQL compatible)
             try:
                 with connection.cursor() as cursor:
+                    # PostgreSQL-compatible query (works with both SQLite and PostgreSQL)
                     cursor.execute(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name='horilla_automations_mailautomation'"
+                        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'horilla_automations_mailautomation')"
                     )
-                    if cursor.fetchone():
+                    table_exists = cursor.fetchone()[0]
+                    if table_exists:
                         start_automation()
                     else:
                         print("⚠️  Skipping automation startup: tables not yet created")
