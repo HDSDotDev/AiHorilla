@@ -126,40 +126,57 @@ except Exception as e:
 
 # Phase 3: Create payroll tables using syncdb (bypasses migration validation)
 print("Phase 3: Payroll tables (using direct syncdb)...", flush=True)
+table_exists = False
 try:
     from django.db import connection
     
     # Check if payroll_payrollsettings table exists
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'payroll_payrollsettings'
-            );
-        """)
-        table_exists = cursor.fetchone()[0]
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'payroll_payrollsettings'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
+            print(f"  Table check result: payroll_payrollsettings exists = {table_exists}", flush=True)
+    except Exception as check_err:
+        print(f"  ⚠ Could not check table existence: {check_err}", flush=True)
+        print("  Assuming tables don't exist...", flush=True)
     
     if not table_exists:
         print("  Payroll tables don't exist - creating with syncdb...", flush=True)
-        # Restore dependencies so models can load properly
-        with open(payroll_migration_path, 'r') as f:
-            content = f.read()
-        restored_content = content.replace('# (', '(').replace('  # Disabled to break circular dependency', '')
-        with open(payroll_migration_path, 'w') as f:
-            f.write(restored_content)
         
         # Use syncdb to create tables from models without running migrations
-        # This bypasses migration validation and creates tables directly
-        call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
-        print("  ✓ Payroll tables created via syncdb", flush=True)
+        # Keep dependencies commented to avoid validation errors
+        # syncdb creates tables directly from model definitions
+        try:
+            call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
+            print("  ✓ Tables created via syncdb", flush=True)
+        except Exception as syncdb_err:
+            print(f"  ⚠ Syncdb failed: {syncdb_err}", flush=True)
+            print("  Trying alternative: restore deps and run migrate payroll...", flush=True)
+            try:
+                # Restore dependencies as last resort
+                with open(payroll_migration_path, 'r') as f:
+                    content = f.read()
+                restored_content = content.replace('# (', '(').replace('  # Disabled to break circular dependency', '')
+                with open(payroll_migration_path, 'w') as f:
+                    f.write(restored_content)
+                
+                call_command('migrate', 'payroll', '--noinput', verbosity=1)
+                print("  ✓ Payroll migrated with restored dependencies", flush=True)
+            except Exception as migrate_err:
+                print(f"  ✗ Both methods failed: {migrate_err}", flush=True)
         
-        # Now mark payroll migrations as applied (fake them)
+        # Mark payroll migrations as applied
         try:
             call_command('migrate', 'payroll', '--fake', '--noinput', verbosity=0)
             print("  ✓ Payroll migrations marked as applied", flush=True)
         except Exception as fake_err:
-            print(f"  ⚠ Could not fake migrations (non-critical): {fake_err}", flush=True)
+            print(f"  ⚠ Could not fake migrations: {fake_err}", flush=True)
     else:
         print("  ✓ Payroll tables already exist", flush=True)
     
