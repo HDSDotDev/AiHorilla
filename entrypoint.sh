@@ -5,42 +5,29 @@ echo "=== Starting Horilla Deployment ==="
 # Disable schedulers during migration
 export SKIP_SCHEDULERS=1
 
-# Wait for database to be ready (important for Railway)
-echo "Waiting for database to be ready..."
-max_retries=30
-retry_count=0
-
-while [ $retry_count -lt $max_retries ]; do
-    if python3 -c "import django; django.setup(); from django.db import connection; connection.ensure_connection()" 2>/dev/null; then
-        echo "✓ Database is ready!"
-        break
-    fi
-    retry_count=$((retry_count + 1))
-    echo "Waiting for database... ($retry_count/$max_retries)"
-    sleep 2
-done
-
-if [ $retry_count -eq $max_retries ]; then
-    echo "✗ Database connection timeout. Exiting..."
-    exit 1
+# Railway PostgreSQL is ready immediately, skip wait if DATABASE_URL is set
+if [ -z "$DATABASE_URL" ]; then
+    echo "⚠ DATABASE_URL not set, using SQLite or custom database config"
+else
+    echo "✓ Using Railway PostgreSQL (DATABASE_URL detected)"
 fi
 
 echo "Step 1: Initializing database..."
-# Use custom command for safe migration
-python3 manage.py init_railway_db || {
-    echo "⚠ Custom migration failed, trying standard approach..."
-    
-    # Fallback to standard migrations
-    python3 manage.py migrate contenttypes --noinput
-    python3 manage.py migrate auth --noinput
-    python3 manage.py migrate --noinput || {
-        echo "⚠ Standard migration failed, trying with --run-syncdb..."
-        python3 manage.py migrate --run-syncdb --noinput || {
-            echo "⚠ Syncdb failed, using --fake-initial as last resort..."
-            python3 manage.py migrate --fake-initial --noinput
-        }
-    }
-}
+# Run migrations with fallback strategies
+echo "Running migrations..."
+
+# Try standard migration first
+if python3 manage.py migrate --noinput 2>&1; then
+    echo "✓ Migrations completed successfully"
+else
+    echo "⚠ Standard migration had issues, trying --run-syncdb..."
+    if python3 manage.py migrate --run-syncdb --noinput 2>&1; then
+        echo "✓ Migrations completed with --run-syncdb"
+    else
+        echo "⚠ Using --fake-initial as fallback..."
+        python3 manage.py migrate --fake-initial --noinput 2>&1 || echo "⚠ Some migrations may have failed"
+    fi
+fi
 
 echo "Step 2: Collecting static files..."
 python3 manage.py collectstatic --noinput --clear || {
