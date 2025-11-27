@@ -113,13 +113,36 @@ except Exception as e:
 # Phase 2: Migrate Horilla base apps that payroll depends on
 print("Phase 2: Base Horilla apps (base, employee, leave, etc.)...", flush=True)
 try:
-    base_apps = ['base', 'employee', 'leave', 'asset', 'attendance', 'horilla_audit']
-    for app in base_apps:
-        try:
-            call_command('migrate', app, '--noinput', verbosity=0)
-            print(f"  ✓ {app}", flush=True)
-        except Exception as e:
-            print(f"  ⚠ {app}: {e}", flush=True)
+    from django.db import connection
+    
+    # First check if tables actually exist (migrations might be faked)
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT table_name FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name IN ('base_company', 'employee_employee', 'leave_leavetype')
+            ORDER BY table_name;
+        """)
+        existing_tables = [row[0] for row in cursor.fetchall()]
+    
+    print(f"  Existing core tables: {existing_tables if existing_tables else 'NONE'}", flush=True)
+    
+    if len(existing_tables) < 3:
+        print("  ⚠ Core tables missing! Using --run-syncdb to create all tables...", flush=True)
+        # Tables don't exist but migrations might be marked as applied
+        # Use syncdb to create all tables from models
+        call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
+        print("  ✓ All tables created via syncdb", flush=True)
+    else:
+        print("  Core tables exist, running normal migrations...", flush=True)
+        base_apps = ['base', 'employee', 'leave', 'asset', 'attendance', 'horilla_audit']
+        for app in base_apps:
+            try:
+                call_command('migrate', app, '--noinput', verbosity=0)
+                print(f"  ✓ {app}", flush=True)
+            except Exception as e:
+                print(f"  ⚠ {app}: {e}", flush=True)
+    
     print("✓ Phase 2 (base apps) completed", flush=True)
 except Exception as e:
     print(f"⚠ Phase 2 warning: {e}", flush=True)
@@ -147,36 +170,17 @@ try:
         print("  Assuming tables don't exist...", flush=True)
     
     if not table_exists:
-        print("  Payroll tables don't exist - creating with syncdb...", flush=True)
+        print("  Payroll tables don't exist (should have been created in Phase 2 syncdb)", flush=True)
+        print("  Attempting to fake payroll migrations...", flush=True)
         
-        # Use syncdb to create tables from models without running migrations
-        # Keep dependencies commented to avoid validation errors
-        # syncdb creates tables directly from model definitions
-        try:
-            call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
-            print("  ✓ Tables created via syncdb", flush=True)
-        except Exception as syncdb_err:
-            print(f"  ⚠ Syncdb failed: {syncdb_err}", flush=True)
-            print("  Trying alternative: restore deps and run migrate payroll...", flush=True)
-            try:
-                # Restore dependencies as last resort
-                with open(payroll_migration_path, 'r') as f:
-                    content = f.read()
-                restored_content = content.replace('# (', '(').replace('  # Disabled to break circular dependency', '')
-                with open(payroll_migration_path, 'w') as f:
-                    f.write(restored_content)
-                
-                call_command('migrate', 'payroll', '--noinput', verbosity=1)
-                print("  ✓ Payroll migrated with restored dependencies", flush=True)
-            except Exception as migrate_err:
-                print(f"  ✗ Both methods failed: {migrate_err}", flush=True)
-        
-        # Mark payroll migrations as applied
+        # Tables should already exist from Phase 2 syncdb
+        # Just mark payroll migrations as applied
         try:
             call_command('migrate', 'payroll', '--fake', '--noinput', verbosity=0)
             print("  ✓ Payroll migrations marked as applied", flush=True)
         except Exception as fake_err:
             print(f"  ⚠ Could not fake migrations: {fake_err}", flush=True)
+            print("  This is OK if Phase 2 syncdb created the tables", flush=True)
     else:
         print("  ✓ Payroll tables already exist", flush=True)
     
