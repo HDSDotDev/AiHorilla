@@ -38,13 +38,13 @@ if [ -n "$DATABASE_URL" ]; then
     echo ">>> Executing railway_setup.py (direct initialization script)..."
     echo ">>> Command starting at $(date)..."
     set +e
-    timeout 300 python3 -u railway_setup.py 2>&1
+    python3 -u railway_setup.py 2>&1
     INIT_EXIT_CODE=$?
     set -e
     
     echo ">>> Command finished at $(date) with exit code: $INIT_EXIT_CODE"
     
-    echo ">>> railway_init_db exit code: $INIT_EXIT_CODE"
+    echo ">>> railway_setup.py exit code: $INIT_EXIT_CODE"
     
     if [ $INIT_EXIT_CODE -ne 0 ]; then
         echo "❌ Initialization failed with exit code $INIT_EXIT_CODE"
