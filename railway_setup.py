@@ -62,24 +62,38 @@ except Exception as e:
 
 print("\n=== Running Migrations ===", flush=True)
 
-# Strategy: Use migrate with --fake-initial to handle circular dependencies
-# This creates tables directly from models if migrations fail due to dependency issues
-print("Running full migration (with fake-initial to handle dependencies)...", flush=True)
+# Fix circular dependency: payroll depends on employee but both are initial migrations
+print("Fixing circular dependency in payroll migration...", flush=True)
+import re
+payroll_migration_path = '/app/payroll/migrations/0001_initial.py'
 try:
-    # First try: Run all migrations with --fake-initial
-    # This will create tables from models if initial migrations can't be applied
-    call_command('migrate', '--fake-initial', '--noinput', verbosity=1)
+    with open(payroll_migration_path, 'r') as f:
+        content = f.read()
+    
+    # Comment out the employee dependency line to break circular dependency
+    if "('employee', '0001_initial')" in content:
+        modified_content = re.sub(
+            r"(\s*)(\('employee', '0001_initial'\),)",
+            r"\1# \2  # Temporarily disabled to break circular dependency",
+            content
+        )
+        
+        with open(payroll_migration_path, 'w') as f:
+            f.write(modified_content)
+        print("✓ Circular dependency temporarily disabled", flush=True)
+    else:
+        print("✓ Migration already fixed or dependency not found", flush=True)
+except Exception as e:
+    print(f"⚠ Could not modify migration file: {e}", flush=True)
+    print("  Continuing anyway...", flush=True)
+
+print("Running migrations...", flush=True)
+try:
+    call_command('migrate', '--noinput', verbosity=1)
     print("✓ All migrations completed successfully", flush=True)
 except Exception as e:
-    print(f"⚠ Standard migration failed: {e}", flush=True)
-    print("\nTrying alternative: migrate with --run-syncdb...", flush=True)
-    try:
-        # Fallback: Use --run-syncdb to create tables directly from models
-        call_command('migrate', '--run-syncdb', '--noinput', verbosity=1)
-        print("✓ Database synchronized using --run-syncdb", flush=True)
-    except Exception as e2:
-        print(f"✗ Migration failed completely: {e2}", flush=True)
-        print("Attempting to continue with remaining setup...", flush=True)
+    print(f"✗ Migration failed: {e}", flush=True)
+    print("Attempting to continue with remaining setup...", flush=True)
 
 print("\n=== Creating Admin User ===", flush=True)
 try:
