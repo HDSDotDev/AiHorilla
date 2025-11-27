@@ -8,15 +8,21 @@ from django.db import connection
 import sys
 import os
 
-# Force unbuffered output
-sys.stdout.reconfigure(line_buffering=True)
-sys.stderr.reconfigure(line_buffering=True)
+# Force unbuffered output (safely)
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass  # If reconfigure fails, continue anyway (PYTHONUNBUFFERED=1 should handle it)
 
 
 class Command(BaseCommand):
     help = 'Initialize database for Railway deployment (first-time setup)'
 
     def handle(self, *args, **options):
+        # Print immediately to show command started
+        print("=== RAILWAY_INIT_DB COMMAND STARTED ===", flush=True)
+        
         self.stdout.write("=" * 80)
         self.stdout.write("Railway Database Initialization")
         self.stdout.write("=" * 80)

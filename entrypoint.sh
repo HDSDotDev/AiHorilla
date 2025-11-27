@@ -35,15 +35,18 @@ if [ -n "$DATABASE_URL" ]; then
     echo ">>> Testing Django import..."
     python3 -c "import django; print(f'Django version: {django.get_version()}')" 2>&1 || echo "ERROR: Django import failed"
     
-    # Show what railway_init_db command exists
-    echo ">>> Checking railway_init_db command..."
-    python3 manage.py help railway_init_db 2>&1 || echo "ERROR: railway_init_db command not found"
-    
-    echo ">>> Executing railway_init_db command..."
+    echo ">>> Executing railway_init_db command (with 300s timeout)..."
+    echo ">>> Command starting at $(date)..."
     set +e
-    python3 -u manage.py railway_init_db 2>&1
+    timeout 300 python3 -u manage.py railway_init_db 2>&1 &
+    INIT_PID=$!
+    echo ">>> railway_init_db process started with PID: $INIT_PID"
+    
+    wait $INIT_PID
     INIT_EXIT_CODE=$?
     set -e
+    
+    echo ">>> Command finished at $(date) with exit code: $INIT_EXIT_CODE"
     
     echo ">>> railway_init_db exit code: $INIT_EXIT_CODE"
     
