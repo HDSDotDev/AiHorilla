@@ -127,8 +127,25 @@ if len(missing) > 0:
         print(f"\n❌ STILL MISSING {len(still_missing)} TABLES AFTER FULL MIGRATE:")
         for table in sorted(still_missing):
             print(f"  ❌ {table}")
-        print("\n⚠️  Full migrate completed but tables not created!")
-        print("   This indicates broken migration files or database issues.")
+        print("\n⚠️  Migrations failed to create tables!")
+        print("   Attempting direct table creation from Django models...")
+        
+        # Last resort: Create tables directly
+        import subprocess
+        try:
+            result = subprocess.run(
+                ['python3', 'create_tables_sql.py'],
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            print(result.stdout)
+            if result.returncode == 0:
+                print("\n✅ Tables created via direct SQL!")
+            else:
+                print(f"\n❌ Direct table creation failed: {result.stderr[:200]}")
+        except Exception as e:
+            print(f"\n❌ Could not run direct table creation: {e}")
     else:
         print("\n✅ ALL CRITICAL TABLES NOW EXIST!")
 
