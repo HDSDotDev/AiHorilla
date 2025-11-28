@@ -75,6 +75,35 @@ if [ -n "$DATABASE_URL" ]; then
     else
         echo "✓ All database tables verified"
     fi
+    
+    # Ensure Django migrations are applied (idempotent). Retry a few times
+    # to allow the DB to settle in case of transient connection issues.
+    echo "\n>>> Applying Django migrations (this blocks startup until complete)..."
+    MAX_ATTEMPTS=5
+    ATTEMPT=1
+    set +e
+    until [ $ATTEMPT -gt $MAX_ATTEMPTS ]
+    do
+        echo "> Attempt $ATTEMPT of $MAX_ATTEMPTS: running migrate..."
+        python3 manage.py migrate --noinput 2>&1
+        MIGRATE_EXIT=$?
+        if [ $MIGRATE_EXIT -eq 0 ]; then
+            echo "✓ Migrations applied successfully"
+            break
+        else
+            echo "⚠ migrate failed (exit $MIGRATE_EXIT). Retrying after delay..."
+            sleep $(( ATTEMPT * 5 ))
+            ATTEMPT=$(( ATTEMPT + 1 ))
+        fi
+    done
+    set -e
+
+    if [ $MIGRATE_EXIT -ne 0 ]; then
+        echo "❌ ERROR: Could not apply migrations after $MAX_ATTEMPTS attempts."
+        echo "The application will not start to avoid serving a partially-initialized site."
+        echo "Please check the container logs and run 'python manage.py migrate' in the service shell."
+        exit 1
+    fi
 else
     echo "⚠️  WARNING: No DATABASE_URL - using SQLite (data will NOT persist on Railway!)"
     echo "⚠️  Please add a PostgreSQL database in Railway dashboard"

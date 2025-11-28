@@ -1,3 +1,42 @@
+# Railway Deployment Checklist
+
+This file documents a minimal, repeatable deployment process for Horilla on Railway.
+
+Steps
+
+1. Link repository in Railway and create a new service.
+
+2. Add a PostgreSQL plugin / resource in Railway and copy the `DATABASE_URL`.
+
+3. In Railway service settings, add the following environment variables:
+   - `DATABASE_URL` (from the PostgreSQL resource)
+   - `RAILWAY_PUBLIC_DOMAIN` (optional; set by Railway automatically)
+
+4. Deploy.
+
+5. The container `entrypoint.sh` will run initialization scripts and **apply migrations**.
+   - The entrypoint blocks until `python manage.py migrate --noinput` succeeds.
+   - If migrations fail, check container logs and run migrations manually in Railway shell:
+
+```bash
+# In Railway web shell or via CLI
+cd /app/horilla
+python manage.py migrate --noinput
+```
+
+6. If a migration cannot be applied because of missing tables due to inconsistent state,
+   run the emergency helper (last-resort) and then re-run migrate:
+
+```bash
+python fix_database_tables.py
+python manage.py migrate --noinput
+```
+
+7. After migrations succeed, visit the app URL. If you need demo data, use the web UI `Load Demo Data`.
+
+Notes
+- Always create a DB backup before performing destructive actions (dropping tables, deleting migration records).
+- The CI workflow will block PRs that introduce model changes without migrations.
 # Railway Deployment Guide for Horilla HR System
 
 This guide will help you deploy the Horilla HR system to Railway.app successfully.
