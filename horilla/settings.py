@@ -187,18 +187,33 @@ MESSAGE_TAGS = {
 
 
 # CSRF Trusted Origins - include Railway domains
-CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS") or []
+_raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS')
 
-# Normalize entries: Django 4+ requires a scheme (http:// or https://).
+def _split_raw_csrf(raw):
+    # Accept None, comma-separated string, or environment-parsed list
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        return list(raw)
+    # If it's a string, split on commas and strip
+    return [p.strip() for p in str(raw).split(',') if p.strip()]
+
 def _normalize_origin(o: str) -> str:
     if not o:
         return o
-    if o.startswith("http://") or o.startswith("https://"):
+    if o.startswith('http://') or o.startswith('https://'):
         return o
-    # If it's an origin like 'example.com' or 'example.com:8000', assume https
     return f"https://{o}"
 
-CSRF_TRUSTED_ORIGINS = [ _normalize_origin(o) for o in CSRF_TRUSTED_ORIGINS ]
+CSRF_TRUSTED_ORIGINS = [_normalize_origin(o) for o in _split_raw_csrf(_raw_csrf)]
+# Deduplicate while preserving order
+seen = set()
+deduped = []
+for o in CSRF_TRUSTED_ORIGINS:
+    if o not in seen:
+        seen.add(o)
+        deduped.append(o)
+CSRF_TRUSTED_ORIGINS = deduped
 
 # Auto-add Railway domain if deployed on Railway
 if os.getenv('RAILWAY_ENVIRONMENT'):

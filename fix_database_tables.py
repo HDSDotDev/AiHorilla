@@ -24,10 +24,23 @@ from django.db import connection
 print("\n=== Checking Current Database State ===")
 def list_tables(cursor):
     # Return all user table names for the current DB backend.
+    # If a previous operation left the DB in an aborted transaction state
+    # we must rollback first so introspection queries succeed.
+    try:
+        connection.rollback()
+    except Exception:
+        pass
+
     try:
         from django.db import connection as _conn
         return list(_conn.introspection.table_names())
     except Exception:
+        # If introspection fails (e.g., aborted transaction), make another
+        # attempt after a rollback and then fallback to vendor-specific SQL.
+        try:
+            connection.rollback()
+        except Exception:
+            pass
         vendor = connection.vendor
         if vendor == 'postgresql':
             cursor.execute("""
