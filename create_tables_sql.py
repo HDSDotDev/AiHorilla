@@ -22,6 +22,8 @@ def main():
     
     # Get all models from our apps
     app_labels = [
+        # Ensure audit is created early because other models reference it
+        'horilla_audit',
         'base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk',
         'payroll', 'recruitment', 'pms', 'onboarding', 'offboarding',
         'project', 'handbook', 'notifications', 'horilla_audit',
@@ -42,42 +44,46 @@ def main():
     from django.core.management.sql import sql_create
     from django.db.backends.base.schema import BaseDatabaseSchemaEditor
     
-    with connection.schema_editor() as schema_editor:
-        for app_label in app_labels:
+    created_total = 0
+    errors = []
+    
+    for app_label in app_labels:
+        try:
+            app_config = apps.get_app_config(app_label)
+        except LookupError:
+            print(f"\n  {app_label}: NOT INSTALLED", flush=True)
+            continue
+
+        print(f"\n  {app_label}:", end=' ', flush=True)
+        created_count = 0
+        for model in app_config.get_models():
+            table_name = model._meta.db_table
+            # Skip if table already exists
+            cursor.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name = '{table_name}');")
+            exists = cursor.fetchone()[0]
+            if exists:
+                continue
+
             try:
-                app_config = apps.get_app_config(app_label)
-                print(f"\n  {app_label}:", end=' ', flush=True)
-                
-                created_count = 0
-                for model in app_config.get_models():
-                    table_name = model._meta.db_table
-                    
-                    # Check if table exists
-                    cursor.execute(f"""
-                        SELECT EXISTS (
-                            SELECT FROM information_schema.tables 
-                            WHERE table_schema = 'public' 
-                            AND table_name = '{table_name}'
-                        );
-                    """)
-                    exists = cursor.fetchone()[0]
-                    
-                    if not exists:
-                        try:
-                            # Create table directly
-                            schema_editor.create_model(model)
-                            created_count += 1
-                        except Exception as e:
-                            if 'already exists' not in str(e).lower():
-                                print(f"❌ {model.__name__}: {str(e)[:40]}", flush=True)
-                
-                if created_count > 0:
-                    print(f"✓ ({created_count} tables)", flush=True)
-                else:
-                    print("✓ (already exist)", flush=True)
-                    
-            except Exception as e:
-                print(f"❌ {str(e)[:50]}", flush=True)
+                # Create each model in its own schema_editor context to isolate failures
+                with connection.schema_editor() as schema_editor:
+                    schema_editor.create_model(model)
+                created_count += 1
+                created_total += 1
+            except Exception as model_err:
+                err = str(model_err)
+                errors.append((model._meta.label, err))
+                print(f"❌ {model.__name__}", flush=True)
+        if created_count > 0:
+            print(f"✓ ({created_count} tables)", flush=True)
+        else:
+            print("✓ (already exist or skipped)", flush=True)
+
+    print(f"\n   Created total: {created_total} tables; Errors: {len(errors)}")
+    if errors:
+        print("\n   Some models failed to create:")
+        for label, err in errors[:10]:
+            print(f"     - {label}: {err[:200]}")
     
     # Mark all migrations as applied
     print("\n📝 Marking migrations as applied...")

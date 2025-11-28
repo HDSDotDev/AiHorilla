@@ -187,21 +187,34 @@ MESSAGE_TAGS = {
 
 
 # CSRF Trusted Origins - include Railway domains
-CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS") or []
+
+# Normalize entries: Django 4+ requires a scheme (http:// or https://).
+def _normalize_origin(o: str) -> str:
+    if not o:
+        return o
+    if o.startswith("http://") or o.startswith("https://"):
+        return o
+    # If it's an origin like 'example.com' or 'example.com:8000', assume https
+    return f"https://{o}"
+
+CSRF_TRUSTED_ORIGINS = [ _normalize_origin(o) for o in CSRF_TRUSTED_ORIGINS ]
 
 # Auto-add Railway domain if deployed on Railway
 if os.getenv('RAILWAY_ENVIRONMENT'):
     railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
     if railway_domain:
-        railway_url = f"https://{railway_domain}"
+        railway_url = _normalize_origin(railway_domain)
         if railway_url not in CSRF_TRUSTED_ORIGINS:
             CSRF_TRUSTED_ORIGINS.append(railway_url)
             print(f"✓ Added Railway domain to CSRF_TRUSTED_ORIGINS: {railway_url}")
     
     # Also add Railway's static domain pattern
     railway_static = os.getenv('RAILWAY_STATIC_URL')
-    if railway_static and railway_static not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(railway_static)
+    if railway_static:
+        rs = _normalize_origin(railway_static)
+        if rs not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(rs)
 
 # Fallback: Add common Railway pattern if detected in ALLOWED_HOSTS
 for host in ALLOWED_HOSTS:
