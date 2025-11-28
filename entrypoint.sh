@@ -82,6 +82,15 @@ if [ -n "$DATABASE_URL" ]; then
     MAX_ATTEMPTS=5
     ATTEMPT=1
     set +e
+    # Try to apply core 'base' app migrations first to satisfy FK targets
+    echo "> Running core app migrations first: 'base' (helps resolve related models)"
+    python3 manage.py migrate base --noinput 2>&1
+    BASE_MIGRATE_EXIT=$?
+    if [ $BASE_MIGRATE_EXIT -eq 0 ]; then
+        echo "✓ 'base' migrations applied"
+    else
+        echo "⚠ 'base' migrations did not fully apply (exit $BASE_MIGRATE_EXIT) — will continue and retry full migrate"
+    fi
     until [ $ATTEMPT -gt $MAX_ATTEMPTS ]
     do
         echo "> Attempt $ATTEMPT of $MAX_ATTEMPTS: running migrate..."
