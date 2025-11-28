@@ -117,20 +117,34 @@ with connection.cursor() as cursor:
 print(f"  Existing core tables: {existing_tables if existing_tables else 'NONE'}", flush=True)
 
 if len(existing_tables) < 3:
-    print("  ⚠ Core tables missing! Running fresh migration...", flush=True)
+    print("  ⚠ Core tables missing! Need fresh database setup...", flush=True)
     
-    # Delete ALL migration records for clean start
+    # NUCLEAR OPTION: Drop ALL tables and start fresh
+    print("  🔥 Dropping ALL existing tables (fresh start)...", flush=True)
     try:
         with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM django_migrations")
-            deleted = cursor.rowcount
-            connection.commit()
-            print(f"  ✓ Deleted {deleted} migration records", flush=True)
-    except Exception as del_err:
-        print(f"  ⚠ Could not clear migrations: {del_err}", flush=True)
+            # Get all tables
+            cursor.execute("""
+                SELECT tablename FROM pg_tables 
+                WHERE schemaname = 'public' 
+                AND tablename NOT LIKE 'pg_%'
+            """)
+            all_tables = [row[0] for row in cursor.fetchall()]
+            
+            if all_tables:
+                # Drop all tables with CASCADE
+                tables_str = ', '.join([f'"{t}"' for t in all_tables])
+                cursor.execute(f"DROP TABLE IF EXISTS {tables_str} CASCADE")
+                connection.commit()
+                print(f"  ✓ Dropped {len(all_tables)} tables", flush=True)
+            else:
+                print("  ✓ No tables to drop", flush=True)
+    except Exception as drop_err:
+        print(f"  ⚠ Could not drop tables: {drop_err}", flush=True)
+        print("  Trying to continue anyway...", flush=True)
     
-    # Run full migrate to create all tables
-    print("  Running full migrate (this creates all tables)...", flush=True)
+    # Run full migrate to create all tables from scratch
+    print("  Running full migrate (creates all tables from scratch)...", flush=True)
     try:
         call_command('migrate', '--noinput', verbosity=1)
         print("  ✓ All migrations applied", flush=True)

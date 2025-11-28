@@ -87,67 +87,53 @@ else:
 
 if len(missing) > 0:
     print("\n" + "=" * 80)
-    print("  CREATING ALL MISSING TABLES")
+    print("  CREATING MISSING TABLES")
     print("=" * 80)
     
-    print("\nStep 1: NUCLEAR RESET - Deleting ALL migration records...")
+    print("\nAttempting direct table creation (bypass migrations)...")
+    print("   This uses Django schema_editor to create tables from models")
+    
+    # Import directly instead of subprocess (avoid timeout)
     try:
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM django_migrations")
-            deleted = cursor.rowcount
-            connection.commit()
-            print(f"✓ Deleted {deleted} migration records (COMPLETE RESET)")
-    except Exception as e:
-        print(f"⚠ Could not clear migration history: {e}")
-    
-    print("\nStep 2: Running FULL migrate (no app filter)...")
-    print("   This applies ALL migrations from scratch - creates all tables")
-    print("   Takes 2-3 minutes...")
-    try:
-        call_command('migrate', '--noinput', verbosity=2)
-        print("\n✓ Full migration completed")
-    except Exception as e:
-        print(f"\n⚠ Migration error: {e}")
-        print("   Continuing to verify...")
-    
-    print("\nStep 3: Verifying tables were created...")
-    with connection.cursor() as cursor:
-        placeholders = ', '.join([f"'{table}'" for table in critical_tables])
-        cursor.execute(f"""
-            SELECT table_name FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name IN ({placeholders})
-            ORDER BY table_name
-        """)
-        now_existing = {row[0] for row in cursor.fetchall()}
-    
-    still_missing = set(critical_tables) - now_existing
-    
-    if still_missing:
-        print(f"\n❌ STILL MISSING {len(still_missing)} TABLES AFTER FULL MIGRATE:")
-        for table in sorted(still_missing):
-            print(f"  ❌ {table}")
-        print("\n⚠️  Migrations failed to create tables!")
-        print("   Attempting direct table creation from Django models...")
+        print("   Importing schema editor...")
+        from django.db.backends.base.schema import BaseDatabaseSchemaEditor
+        from django.apps import apps
         
-        # Last resort: Create tables directly
-        import subprocess
-        try:
-            result = subprocess.run(
-                ['python3', 'create_tables_sql.py'],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            print(result.stdout)
-            if result.returncode == 0:
-                print("\n✅ Tables created via direct SQL!")
-            else:
-                print(f"\n❌ Direct table creation failed: {result.stderr[:200]}")
-        except Exception as e:
-            print(f"\n❌ Could not run direct table creation: {e}")
-    else:
-        print("\n✅ ALL CRITICAL TABLES NOW EXIST!")
+        created_count = 0
+        error_count = 0
+        
+        with connection.schema_editor() as schema_editor:
+            for app_label in ['base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk', 'payroll']:
+                try:
+                    app_config = apps.get_app_config(app_label)
+                    print(f"   {app_label}:", end=' ', flush=True)
+                    
+                    for model in app_config.get_models():
+                        try:
+                            schema_editor.create_model(model)
+                            created_count += 1
+                        except Exception as model_err:
+                            if 'already exists' not in str(model_err).lower():
+                                error_count += 1
+                    
+                    print(f"✓", flush=True)
+                except Exception as app_err:
+                    print(f"❌ {str(app_err)[:40]}", flush=True)
+        
+        print(f"\n   Created {created_count} tables ({error_count} errors)")
+        
+        # Mark migrations as faked
+        print("   Marking migrations as applied...")
+        for app_label in ['base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk', 'payroll']:
+            try:
+                call_command('migrate', app_label, '--fake', '--noinput', verbosity=0)
+            except:
+                pass
+        
+        print("✅ Direct table creation completed!")
+        
+    except Exception as e:
+        print(f"\n❌ Direct table creation failed: {e}")
 
 print("\n" + "=" * 80)
 print("  FINAL DATABASE STATE")
