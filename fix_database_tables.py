@@ -231,94 +231,41 @@ if len(missing) > 0:
         else:
             print("\n✅ Table creation completed successfully!")
         
-        # Ensure connection is in clean state for verification
-        print("\nEnsuring clean database connection for verification...")
+        # Verify final state BEFORE closing connection
+        print("\n" + "=" * 80)
+        print("  FINAL DATABASE STATE")
+        print("=" * 80)
+        
         try:
-            connection.close()
-            connection.ensure_connection()
-            print("✓ Database connection refreshed")
-        except Exception as conn_err:
-            print(f"⚠️ Connection refresh warning: {conn_err}")
+            with connection.cursor() as cursor:
+                tables_now = list_tables(cursor)
+                final_count = len(tables_now)
+                print(f"Total tables: {final_count}")
+                
+                final_critical = set()
+                for t in critical_tables:
+                    if t in tables_now:
+                        final_critical.add(t)
+
+            print(f"Critical tables: {len(final_critical)}/{len(critical_tables)}")
+
+            final_missing = set(critical_tables) - final_critical
+            if final_missing:
+                print(f"\n❌ Still missing {len(final_missing)} critical tables:")
+                for table in sorted(final_missing):
+                    print(f"  ❌ {table}")
+            else:
+                print("\n✅ All critical tables created successfully!")
+                
+        except Exception as verify_err:
+            print(f"❌ Could not verify final state: {verify_err}")
         
     except Exception as e:
         print(f"\n❌ Two-pass table creation failed: {e}")
         import traceback
         traceback.print_exc()
 
+# Script complete
 print("\n" + "=" * 80)
-print("  FINAL DATABASE STATE")
+print("✓ Database table setup complete")
 print("=" * 80)
-
-try:
-    # Ensure connection is active for verification (don't close it first)
-    connection.ensure_connection()
-    
-    with connection.cursor() as cursor:
-        tables_now = list_tables(cursor)
-        final_count = len(tables_now)
-        print(f"Total tables: {final_count}")
-        
-        final_critical = set()
-        for t in critical_tables:
-            if t in tables_now:
-                final_critical.add(t)
-
-    print(f"Critical tables: {len(final_critical)}/{len(critical_tables)}")
-
-    final_missing = set(critical_tables) - final_critical
-    if final_missing:
-        print(f"\n❌ Still missing {len(final_missing)} critical tables:")
-        for table in sorted(final_missing):
-            print(f"  ❌ {table}")
-        
-        # Diagnostic: Show which app owns these tables
-        print("\n=== Attempting to create missing tables explicitly ===")
-        from django.apps import apps
-        from django.db.models import ForeignKey, OneToOneField
-        
-        for table_name in final_missing:
-            # Find the model for this table
-            for model in apps.get_models():
-                if model._meta.db_table == table_name:
-                    print(f"Found model {model.__name__} for table {table_name}, attempting creation...")
-                    try:
-                        with transaction.atomic():
-                            # Disable all FK constraints
-                            for fk_field in model._meta.local_fields:
-                                if isinstance(fk_field, (ForeignKey, OneToOneField)):
-                                    fk_field.db_constraint = False
-                            
-                            with connection.schema_editor() as schema_editor:
-                                schema_editor.create_model(model)
-                            
-                            connection.commit()
-                            print(f"  ✓ Created {table_name}")
-                    except Exception as e:
-                        print(f"  ❌ Failed to create {table_name}: {e}")
-                    break
-        
-        # Re-check after explicit creation attempts
-        with connection.cursor() as cursor:
-            tables_now = list_tables(cursor)
-            final_critical_2 = set(critical_tables).intersection(set(tables_now))
-        
-        final_missing_2 = set(critical_tables) - final_critical_2
-        if final_missing_2:
-            print(f"\n❌ Still missing {len(final_missing_2)} tables after retry:")
-            for table in sorted(final_missing_2):
-                print(f"  {table}")
-            print("\nℹ Some tables may need manual creation due to complex dependencies")
-            sys.exit(1)
-        else:
-            print("\n✅ All critical tables now exist after retry!")
-            print("\nYou can now run 'Load Demo Data' from the web interface.")
-            sys.exit(0)
-    else:
-        print("\n✅ SUCCESS - All critical tables exist!")
-        print("\nYou can now run 'Load Demo Data' from the web interface.")
-        sys.exit(0)
-except Exception as e:
-    print(f"\n❌ Could not verify final state: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
