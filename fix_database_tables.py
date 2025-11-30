@@ -187,26 +187,35 @@ print("\n" + "=" * 80)
 print("  FINAL DATABASE STATE")
 print("=" * 80)
 
-with connection.cursor() as cursor:
-    tables_now = list_tables(cursor)
-    final_count = len(tables_now)
-    print(f"Total tables: {final_count}")
-    
-    final_critical = set()
-    tables_now = list_tables(cursor)
-    for t in critical_tables:
-        if t in tables_now:
-            final_critical.add(t)
+# Close and reopen connection to clear any aborted transaction state
+try:
+    connection.close()
+except Exception:
+    pass
 
-print(f"Critical tables: {len(final_critical)}/{len(critical_tables)}")
+try:
+    with connection.cursor() as cursor:
+        tables_now = list_tables(cursor)
+        final_count = len(tables_now)
+        print(f"Total tables: {final_count}")
+        
+        final_critical = set()
+        for t in critical_tables:
+            if t in tables_now:
+                final_critical.add(t)
 
-final_missing = set(critical_tables) - final_critical
-if final_missing:
-    print(f"\n❌ FAILED - Still missing {len(final_missing)} tables")
-    for table in sorted(final_missing):
-        print(f"  {table}")
+    print(f"Critical tables: {len(final_critical)}/{len(critical_tables)}")
+
+    final_missing = set(critical_tables) - final_critical
+    if final_missing:
+        print(f"\n❌ FAILED - Still missing {len(final_missing)} tables")
+        for table in sorted(final_missing):
+            print(f"  {table}")
+        sys.exit(1)
+    else:
+        print("\n✅ SUCCESS - All critical tables exist!")
+        print("\nYou can now run 'Load Demo Data' from the web interface.")
+        sys.exit(0)
+except Exception as e:
+    print(f"\n❌ FAILED - Could not verify final state: {e}")
     sys.exit(1)
-else:
-    print("\n✅ SUCCESS - All critical tables exist!")
-    print("\nYou can now run 'Load Demo Data' from the web interface.")
-    sys.exit(0)
