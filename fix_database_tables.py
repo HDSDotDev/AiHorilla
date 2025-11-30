@@ -23,6 +23,26 @@ django.setup()
 from django.core.management import call_command
 from django.db import connection, transaction
 
+# PERFORMANCE: Skip if database already initialized
+print("\n=== Quick Database Check ===")
+try:
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+        """)
+        existing_table_count = cursor.fetchone()[0]
+    
+    if existing_table_count >= 100:
+        print(f"✓ Database already initialized ({existing_table_count} tables exist)")
+        print("✓ Skipping table creation to save time")
+        print("\n✅ SUCCESS - Database ready!")
+        sys.exit(0)
+    else:
+        print(f"Found {existing_table_count} tables - proceeding with initialization")
+except Exception as e:
+    print(f"⚠️ Quick check failed: {e} - proceeding with full initialization")
+
 print("\n=== Checking Current Database State ===")
 def list_tables(cursor):
     # Return all user table names for the current DB backend.

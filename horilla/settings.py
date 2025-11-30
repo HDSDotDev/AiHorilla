@@ -206,6 +206,15 @@ def _normalize_origin(o: str) -> str:
     return f"https://{o}"
 
 CSRF_TRUSTED_ORIGINS = [_normalize_origin(o) for o in _split_raw_csrf(_raw_csrf)]
+
+# CRITICAL: Also check environment variable set by entrypoint.sh
+env_csrf = os.getenv('CSRF_TRUSTED_ORIGINS')
+if env_csrf:
+    for origin in env_csrf.split(','):
+        origin = origin.strip()
+        if origin:
+            CSRF_TRUSTED_ORIGINS.append(_normalize_origin(origin))
+
 # Deduplicate while preserving order
 seen = set()
 deduped = []

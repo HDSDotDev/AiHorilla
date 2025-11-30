@@ -131,6 +131,13 @@ echo "=== INITIALIZATION COMPLETE ==="
 # Schedulers will check table existence before starting even without these flags
 
 echo "=== STARTING APPLICATION SERVER ==="
+
+# CRITICAL: Export CSRF_TRUSTED_ORIGINS for Gunicorn workers
+if [ -n "$RAILWAY_PUBLIC_DOMAIN" ]; then
+    export CSRF_TRUSTED_ORIGINS="https://${RAILWAY_PUBLIC_DOMAIN}"
+    echo "✓ Set CSRF_TRUSTED_ORIGINS=$CSRF_TRUSTED_ORIGINS"
+fi
+
 echo "Port: ${PORT:-8000}"
 echo "Workers: ${GUNICORN_WORKERS:-2}"
 echo "Threads: ${GUNICORN_THREADS:-4}"
