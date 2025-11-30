@@ -216,20 +216,21 @@ for o in CSRF_TRUSTED_ORIGINS:
 CSRF_TRUSTED_ORIGINS = deduped
 
 # Auto-add Railway domain if deployed on Railway
-if os.getenv('RAILWAY_ENVIRONMENT'):
-    railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
-    if railway_domain:
-        railway_url = _normalize_origin(railway_domain)
-        if railway_url not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(railway_url)
-            print(f"✓ Added Railway domain to CSRF_TRUSTED_ORIGINS: {railway_url}")
-    
-    # Also add Railway's static domain pattern
-    railway_static = os.getenv('RAILWAY_STATIC_URL')
-    if railway_static:
-        rs = _normalize_origin(railway_static)
-        if rs not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(rs)
+# Use RAILWAY_PUBLIC_DOMAIN (always set) instead of RAILWAY_ENVIRONMENT (may be unset)
+railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+if railway_domain:
+    railway_url = _normalize_origin(railway_domain)
+    if railway_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(railway_url)
+        print(f"✓ Added Railway domain to CSRF_TRUSTED_ORIGINS: {railway_url}")
+
+# Also add Railway's static domain pattern if present
+railway_static = os.getenv('RAILWAY_STATIC_URL')
+if railway_static:
+    rs = _normalize_origin(railway_static)
+    if rs not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(rs)
+        print(f"✓ Added Railway static URL to CSRF_TRUSTED_ORIGINS: {rs}")
 
 # Fallback: Add common Railway pattern if detected in ALLOWED_HOSTS
 for host in ALLOWED_HOSTS:

@@ -125,9 +125,10 @@ fi
 
 echo "=== INITIALIZATION COMPLETE ==="
 
-# Re-enable schedulers for server
-unset SKIP_SCHEDULERS
-unset RAILWAY_ENVIRONMENT
+# NOTE: Keep SKIP_SCHEDULERS and RAILWAY_ENVIRONMENT set!
+# - SKIP_SCHEDULERS prevents schedulers from starting in worker processes before DB is ready
+# - RAILWAY_ENVIRONMENT ensures proper Railway integration and CSRF settings
+# Schedulers will check table existence before starting even without these flags
 
 echo "=== STARTING APPLICATION SERVER ==="
 echo "Port: ${PORT:-8000}"
