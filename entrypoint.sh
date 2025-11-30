@@ -111,6 +111,7 @@ echo "=== INITIALIZATION COMPLETE ==="
 
 # Re-enable schedulers for server
 unset SKIP_SCHEDULERS
+unset RAILWAY_ENVIRONMENT
 
 echo "=== STARTING APPLICATION SERVER ==="
 echo "Port: ${PORT:-8000}"

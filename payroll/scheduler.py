@@ -171,14 +171,23 @@ def auto_payslip_generate():
                 generate_payslip(date=date.today(), companies=companies, all=False)
 
 
-if not any(
-    cmd in sys.argv
-    for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-) and not os.getenv("SKIP_SCHEDULERS"):
+# Check if we should skip scheduler initialization
+SKIP_SCHEDULER = (
+    any(cmd in sys.argv for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"])
+    or os.getenv("SKIP_SCHEDULERS")
+    or os.getenv("RAILWAY_ENVIRONMENT")  # Skip during Railway initialization
+)
+
+if not SKIP_SCHEDULER:
     try:
+        # Double-check that tables exist before starting scheduler
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM payroll_payslipautogenerate LIMIT 1")
+        
         scheduler = BackgroundScheduler()
         scheduler.add_job(expire_contract, "interval", hours=4)
         scheduler.add_job(auto_payslip_generate, "interval", hours=3)
         scheduler.start()
     except Exception as e:
-        print(f"⚠️  Failed to start payroll scheduler: {e}")
+        print(f"⚠️  Skipping automation startup: tables not yet created")

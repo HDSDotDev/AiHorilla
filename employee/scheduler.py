@@ -145,17 +145,26 @@ def block_unblock_disciplinary():
     return
 
 
-if not any(
-    cmd in sys.argv
-    for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-) and not os.getenv("SKIP_SCHEDULERS"):
+# Check if we should skip scheduler initialization
+SKIP_SCHEDULER = (
+    any(cmd in sys.argv for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"])
+    or os.getenv("SKIP_SCHEDULERS")
+    or os.getenv("RAILWAY_ENVIRONMENT")  # Skip during Railway initialization
+)
+
+if not SKIP_SCHEDULER:
     """
     Initializes and starts background tasks using APScheduler when the server is running.
     """
     try:
+        # Double-check that tables exist before starting scheduler
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM employee_disciplinaryaction LIMIT 1")
+        
         scheduler = BackgroundScheduler()
         scheduler.add_job(update_experience, "interval", hours=4)
         scheduler.add_job(block_unblock_disciplinary, "interval", seconds=25)
         scheduler.start()
     except Exception as e:
-        print(f"⚠️  Failed to start employee scheduler: {e}")
+        print(f"⚠️  Skipping automation startup: tables not yet created")
