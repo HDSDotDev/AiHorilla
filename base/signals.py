@@ -22,6 +22,11 @@ def create_deduction_cutleave_from_penalty(sender, instance, created, **kwargs):
     """
     This is post save method, used to create deduction and cut available leave days
     """
+    # Skip signal execution during deployment if environment variable is set
+    import os
+    if os.environ.get('HORILLA_SKIP_SIGNALS') == '1':
+        return
+    
     # only work when creating
     if created:
         penalty_amount = instance.penalty_amount

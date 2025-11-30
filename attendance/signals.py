@@ -165,6 +165,32 @@ def create_attendance_setting(sender, instance, created, raw, **kwargs):
     whenever a new Company is created. This does NOT skip creation during
     loaddata, so the object will also be created when fixture data is loaded.
     """
+    # Skip signal execution during deployment if environment variable is set
+    import os
+    if os.environ.get('HORILLA_SKIP_SIGNALS') == '1':
+        return
+    
+    # Check if table exists before querying (prevents errors during deployment)
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'attendance_attendancegeneralsetting'
+                )
+            """)
+            table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            # Table doesn't exist yet (during migration/deployment)
+            return
+    except Exception as e:
+        # If we can't check, skip to avoid errors during deployment
+        print(f"Skipping attendance setting creation during deployment: {e}")
+        return
+    
     AttendanceGeneralSetting.objects.get_or_create(company_id=None)
     if created:
         AttendanceGeneralSetting.objects.get_or_create(company_id=instance)

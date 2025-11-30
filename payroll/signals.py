@@ -40,6 +40,11 @@ def create_installments(sender, instance, created, **kwargs):
     """
     Post save method for loan account
     """
+    # Skip signal execution during deployment if environment variable is set
+    import os
+    if os.environ.get('HORILLA_SKIP_SIGNALS') == '1':
+        return
+    
     installments = []
     asset = True
     if apps.is_installed("asset"):

@@ -924,19 +924,23 @@ class PhilippinesComprehensiveDemo:
         print("=" * 80)
         
         try:
-            self.create_company_and_structure()
-            self.create_philippines_regions()
-            self.create_employees()
-            self.create_attendance_data()
-            self.create_leave_data()
-            self.create_asset_data()
-            self.create_helpdesk_data()
-            self.create_payroll_data()
-            self.configure_philippines_system()
-            self.print_summary()
+            # Wrap entire operation in atomic transaction
+            # If any signal hits missing table, rollback everything
+            with transaction.atomic():
+                self.create_company_and_structure()
+                self.create_philippines_regions()
+                self.create_employees()
+                self.create_attendance_data()
+                self.create_leave_data()
+                self.create_asset_data()
+                self.create_helpdesk_data()
+                self.create_payroll_data()
+                self.configure_philippines_system()
+                self.print_summary()
             return True
         except Exception as e:
             print(f"\n[ERROR] {str(e)}")
+            print("Transaction rolled back - no partial data saved")
             import traceback
             traceback.print_exc()
             return False

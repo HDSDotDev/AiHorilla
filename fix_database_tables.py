@@ -250,12 +250,7 @@ print("  FINAL DATABASE STATE")
 print("=" * 80)
 
 try:
-    # Ensure fresh connection for verification
-    try:
-        connection.close()
-    except Exception:
-        pass
-    
+    # Ensure connection is active for verification (don't close it first)
     connection.ensure_connection()
     
     with connection.cursor() as cursor:

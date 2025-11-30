@@ -64,10 +64,14 @@ if [ -n "$DATABASE_URL" ]; then
     # Verify all tables exist, create if missing
     echo ""
     echo ">>> Verifying database tables..."
+    # Disable signals during table creation to prevent queries on non-existent tables
+    export HORILLA_SKIP_SIGNALS=1
     set +e
     python3 -u fix_database_tables.py 2>&1
     FIX_EXIT_CODE=$?
     set -e
+    # Re-enable signals after table creation
+    unset HORILLA_SKIP_SIGNALS
     
     if [ $FIX_EXIT_CODE -ne 0 ]; then
         echo "❌ Table verification failed - database may be incomplete"
