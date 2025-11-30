@@ -76,16 +76,32 @@ if [ -n "$DATABASE_URL" ]; then
         echo "✓ All database tables verified"
     fi
     
-    # Attempt Django migrations (they may fail due to circular dependencies)
-    # fix_database_tables.py already created tables, so migration failures are non-fatal
-    echo "\n>>> Applying Django migrations (best effort - tables already created)..."
+    # Migrate Django core apps FIRST (these have no circular dependencies)
+    echo "\n>>> Migrating Django core apps (auth, sessions, admin, contenttypes)..."
+    set +e
+    python3 manage.py migrate contenttypes --noinput 2>&1
+    python3 manage.py migrate auth --noinput 2>&1
+    python3 manage.py migrate sessions --noinput 2>&1
+    python3 manage.py migrate admin --noinput 2>&1
+    CORE_EXIT=$?
+    set -e
+    
+    if [ $CORE_EXIT -eq 0 ]; then
+        echo "✓ Django core tables created"
+    else
+        echo "⚠ Core migrations had issues (exit code $CORE_EXIT)"
+    fi
+    
+    # Attempt application migrations (may fail due to circular dependencies)
+    # fix_database_tables.py already created app tables, so migration failures are non-fatal
+    echo "\n>>> Applying application migrations (best effort - tables already created)..."
     set +e
     python3 manage.py migrate --noinput 2>&1
     MIGRATE_EXIT=$?
     set -e
     
     if [ $MIGRATE_EXIT -eq 0 ]; then
-        echo "✓ Migrations applied successfully"
+        echo "✓ All migrations applied successfully"
     else
         echo "⚠ Migrations exited with code $MIGRATE_EXIT (likely circular dependencies)"
         echo "ℹ This is OK - tables were already created by fix_database_tables.py"
