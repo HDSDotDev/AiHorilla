@@ -187,13 +187,19 @@ print("\n" + "=" * 80)
 print("  FINAL DATABASE STATE")
 print("=" * 80)
 
-# Close and reopen connection to clear any aborted transaction state
+# Clear any aborted transaction state by rolling back
 try:
-    connection.close()
+    from django.db import transaction
+    if transaction.get_connection().in_atomic_block:
+        transaction.set_rollback(True)
+    connection.rollback()
 except Exception:
     pass
 
 try:
+    # Ensure connection is alive
+    connection.ensure_connection()
+    
     with connection.cursor() as cursor:
         tables_now = list_tables(cursor)
         final_count = len(tables_now)
