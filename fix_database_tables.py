@@ -194,20 +194,8 @@ if len(missing) > 0:
             for label, err in errors[:5]:
                 print(f"    - {label}: {err[:150]}")
         
-        # CRITICAL: Explicit commit to ensure tables persist
-        print("\nCommitting all table creations to database...")
-        try:
-            connection.commit()
-            print("✓ Database commit successful")
-        except Exception as commit_err:
-            print(f"⚠️ Commit warning: {commit_err}")
-            # Try to close and reconnect to force commit
-            try:
-                connection.close()
-                connection.ensure_connection()
-                print("✓ Reconnected to database")
-            except Exception:
-                pass
+        # NOTE: Cannot manually commit inside atomic() blocks - Django auto-commits when blocks exit
+        # Each table was created in its own transaction.atomic() block, so commits are automatic
 
         # Mark migrations as faked
         print("\nMarking migrations as applied (faked)...")
@@ -223,6 +211,15 @@ if len(missing) > 0:
         else:
             print("\n✅ Table creation completed successfully!")
         
+        # Ensure connection is in clean state for verification
+        print("\nEnsuring clean database connection for verification...")
+        try:
+            connection.close()
+            connection.ensure_connection()
+            print("✓ Database connection refreshed")
+        except Exception as conn_err:
+            print(f"⚠️ Connection refresh warning: {conn_err}")
+        
     except Exception as e:
         print(f"\n❌ Two-pass table creation failed: {e}")
         import traceback
@@ -233,7 +230,12 @@ print("  FINAL DATABASE STATE")
 print("=" * 80)
 
 try:
-    # Ensure clean connection state
+    # Ensure fresh connection for verification
+    try:
+        connection.close()
+    except Exception:
+        pass
+    
     connection.ensure_connection()
     
     with connection.cursor() as cursor:
