@@ -80,6 +80,9 @@ if [ -n "$DATABASE_URL" ]; then
         echo "✓ All database tables verified"
     fi
     
+    # Log completion time
+    echo ">>> Table verification completed at $(date)"
+    
     # Migrate Django core apps FIRST (these have no circular dependencies)
     echo "\n>>> Migrating Django core apps (auth, sessions, admin, contenttypes)..."
     set +e
@@ -134,6 +137,10 @@ echo "=== INITIALIZATION COMPLETE ==="
 # - RAILWAY_ENVIRONMENT ensures proper Railway integration and CSRF settings
 # Schedulers will check table existence before starting even without these flags
 
+echo ""
+echo "=== INITIALIZATION COMPLETE ==="
+echo ">>> Total initialization time: started at deployment, completed at $(date)"
+echo ""
 echo "=== STARTING APPLICATION SERVER ==="
 
 # CRITICAL: Export CSRF_TRUSTED_ORIGINS for Gunicorn workers
@@ -145,7 +152,21 @@ fi
 echo "Port: ${PORT:-8000}"
 echo "Workers: ${GUNICORN_WORKERS:-2}"
 echo "Threads: ${GUNICORN_THREADS:-4}"
+
+# Run startup verification
+echo ">>> Running startup verification..."
+python3 -u verify_startup.py 2>&1 || {
+    echo ""
+    echo "✗ Startup verification failed - cannot start application"
+    echo "✗ Check errors above"
+    exit 1
+}
+echo ""
+
+echo ">>> Starting Gunicorn server..."
 echo "✓ Deployment complete! Application starting..."
+echo ">>> Gunicorn will now take over logging..."
+echo ""
 
 exec gunicorn \
     --bind 0.0.0.0:${PORT:-8000} \
@@ -156,4 +177,5 @@ exec gunicorn \
     --access-logfile - \
     --error-logfile - \
     --worker-class sync \
+    --preload \
     horilla.wsgi:application
