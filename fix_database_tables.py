@@ -130,7 +130,8 @@ if len(missing) > 0:
         errors = []
         from django.apps import apps
 
-        for app_label in ['horilla_audit', 'base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk', 'payroll']:
+        # Order apps to respect dependencies: employee before base (base references employee.Employee)
+        for app_label in ['horilla_audit', 'employee', 'base', 'leave', 'asset', 'attendance', 'helpdesk', 'payroll']:
             try:
                 app_config = apps.get_app_config(app_label)
             except LookupError:
@@ -167,9 +168,9 @@ if len(missing) > 0:
             for label, err in errors[:10]:
                 print(f"     - {label}: {err[:200]}")
 
-        # Mark migrations as faked for apps we attempted
+        # Mark migrations as faked for apps we attempted (same order as creation)
         print("   Marking migrations as applied (faked)...")
-        for app_label in ['horilla_audit', 'base', 'employee', 'leave', 'asset', 'attendance', 'helpdesk', 'payroll']:
+        for app_label in ['horilla_audit', 'employee', 'base', 'leave', 'asset', 'attendance', 'helpdesk', 'payroll']:
             try:
                 call_command('migrate', app_label, '--fake', '--noinput', verbosity=0)
             except Exception:
