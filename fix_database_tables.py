@@ -21,7 +21,7 @@ print("=" * 80)
 django.setup()
 
 from django.core.management import call_command
-from django.db import connection
+from django.db import connection, transaction
 
 print("\n=== Checking Current Database State ===")
 def list_tables(cursor):
@@ -117,20 +117,15 @@ if len(missing) > 0:
     print("  CREATING MISSING TABLES (Isolated Transaction Method)")
     print("=" * 80)
     
-    print("\nCreating tables using isolated transactions per model...")
-    print("  (Each model creation is independent - failures don't cascade)")
+    print("\nCreating tables with FK constraints disabled...")
+    print("  (FK constraints are disabled to break circular dependencies)")
     
     try:
         from django.apps import apps
-        from django.db import transaction
         from django.db.models import ForeignKey, OneToOneField
         
         created_count = 0
         errors = []
-        
-        # CRITICAL: Use set_autocommit to prevent transaction contamination
-        # Each model creation happens in its own isolated transaction
-        connection.set_autocommit(True)
         
         for app_label in ['horilla_audit', 'base', 'employee', 'payroll', 'leave', 'asset', 'attendance', 'helpdesk']:
             try:
@@ -192,9 +187,6 @@ if len(missing) > 0:
                 print(f"✓ ({app_created} tables)", flush=True)
             else:
                 print("✓ (skipped)", flush=True)
-        
-        # Restore transaction mode
-        connection.set_autocommit(False)
         
         print(f"\nTable creation complete: {created_count} tables created")
         if errors:
