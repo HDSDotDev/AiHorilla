@@ -11,7 +11,8 @@ import django
 from django.core.management import call_command
 from django.db import connection
 
-# Set environment
+# Set environment - CRITICAL: Set DJANGO_SETTINGS_MODULE first
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'horilla.settings')
 os.environ['SKIP_SCHEDULERS'] = '1'
 os.environ['SKIP_DB_INIT_IN_READY'] = '1'
 os.environ['HORILLA_SKIP_SIGNALS'] = '1'
