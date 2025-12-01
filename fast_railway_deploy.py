@@ -41,64 +41,44 @@ except Exception as e:
     print(f"  ✗ Database connection failed: {e}")
     sys.exit(1)
 
-# Create all tables using fix_database_tables logic
+# Create all tables using proven two-pass approach
 print("\n[3/6] Creating database tables...")
 step_start = time.time()
 try:
-    # Import here to use already-initialized Django
     from django.core.management import call_command
-    from django.db import connection
+    from django.apps import apps
     
-    # Run makemigrations to ensure migrations exist
+    # Run makemigrations first
     print("  - Generating migrations...")
     call_command('makemigrations', interactive=False, verbosity=0)
     
-    # Two-pass table creation
-    print("  - Pass 1: Creating tables without dependencies...")
-    with connection.cursor() as cursor:
-        # Get all app models
-        from django.apps import apps
-        from django.db import models as django_models
-        
-        created_count = 0
-        for app_config in apps.get_app_configs():
-            for model in app_config.get_models():
-                table_name = model._meta.db_table
-                try:
-                    # Check if table exists
-                    cursor.execute("""
-                        SELECT EXISTS (
-                            SELECT FROM information_schema.tables 
-                            WHERE table_name = %s
-                        )
-                    """, [table_name])
-                    
-                    if not cursor.fetchone()[0]:
-                        # Try to create table
-                        try:
-                            with connection.schema_editor() as schema_editor:
-                                schema_editor.create_model(model)
-                            created_count += 1
-                        except Exception:
-                            pass  # Will retry in pass 2
-                except Exception:
-                    pass
-        
-        print(f"  - Pass 1 complete: {created_count} tables created")
+    # Two-pass table creation using migrations
+    print("  - Pass 1: Core Django tables...")
+    try:
+        call_command('migrate', 'contenttypes', interactive=False, verbosity=0)
+        call_command('migrate', 'auth', interactive=False, verbosity=0)
+        call_command('migrate', 'sessions', interactive=False, verbosity=0)
+        call_command('migrate', 'admin', interactive=False, verbosity=0)
+    except Exception as e:
+        print(f"    ⚠ Core migrations warning: {e}")
     
-    # Use migrate as pass 2
-    print("  - Pass 2: Migrating with dependencies...")
-    call_command('migrate', interactive=False, verbosity=1, run_syncdb=True)
+    print("  - Pass 2: Application tables...")
+    # Use run_syncdb to force table creation even without migrations
+    try:
+        call_command('migrate', interactive=False, verbosity=0, run_syncdb=True)
+    except Exception as e:
+        print(f"    ⚠ Migration warning: {e}")
+        # Try without run_syncdb
+        try:
+            call_command('migrate', interactive=False, verbosity=0)
+        except Exception as e2:
+            print(f"    ⚠ Second attempt warning: {e2}")
     
-    print(f"  ✓ All tables created ({time.time() - step_start:.1f}s)")
+    print(f"  ✓ Table creation complete ({time.time() - step_start:.1f}s)")
     
 except Exception as e:
-    print(f"  ⚠ Table creation had errors: {e}")
-    print("  - Attempting migrations anyway...")
-    try:
-        call_command('migrate', interactive=False, verbosity=1)
-    except Exception as e2:
-        print(f"  ⚠ Migrations also failed: {e2}")
+    print(f"  ✗ Table creation failed: {e}")
+    # Don't exit - continue to verification
 
 # Verify critical tables
 print("\n[4/6] Verifying critical tables...")
