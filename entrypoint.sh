@@ -6,8 +6,9 @@ export PYTHONUNBUFFERED=1
 
 echo "=== Starting Horilla Deployment ==="
 
-# Disable schedulers during migration
+# Disable schedulers and DB operations in app ready() methods during initialization
 export SKIP_SCHEDULERS=1
+export SKIP_DB_INIT_IN_READY=1
 
 # Mark Railway environment for Django settings
 export RAILWAY_ENVIRONMENT=1

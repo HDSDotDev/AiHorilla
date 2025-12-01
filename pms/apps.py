@@ -15,6 +15,7 @@ class PmsConfig(AppConfig):
     name = "pms"
 
     def ready(self):
+        import os
         from django.urls import include, path
 
         from horilla.horilla_settings import APPS
@@ -25,6 +26,11 @@ class PmsConfig(AppConfig):
             path("pms/", include("pms.urls")),
         )
         super().ready()
+        
+        # Skip automation and scheduler during initial deployment
+        if os.environ.get('SKIP_SCHEDULERS') or os.environ.get('SKIP_DB_INIT_IN_READY'):
+            return
+            
         try:
             from pms.signals import start_automation
 
