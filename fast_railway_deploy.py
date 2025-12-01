@@ -28,6 +28,18 @@ start_time = time.time()
 print("\n[1/6] Initializing Django...")
 step_start = time.time()
 django.setup()
+
+# CRITICAL: Verify migration files exist
+print("\n[DEBUG] Checking migration files...")
+import glob
+employee_migrations = glob.glob('/app/employee/migrations/0*.py')
+payroll_migrations = glob.glob('/app/payroll/migrations/0*.py')
+print(f"  - Employee migrations found: {len(employee_migrations)}")
+for mig in sorted(employee_migrations):
+    print(f"    • {os.path.basename(mig)}")
+print(f"  - Payroll migrations found: {len(payroll_migrations)}")
+for mig in sorted(payroll_migrations)[:3]:  # First 3 only
+    print(f"    • {os.path.basename(mig)}")
 print(f"  ✓ Django initialized ({time.time() - step_start:.1f}s)")
 
 # Check database connection
