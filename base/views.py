@@ -236,64 +236,73 @@ def initialize_database_condition():
 
 
 def load_demo_database(request):
-    """Load Philippines-focused demo data with comprehensive employee information"""
+    """Load minimal demo data using SQL-based loader (reliable, fast)"""
     if initialize_database_condition():
         if request.method == "POST":
             if request.POST.get("load_data_password") == DB_INIT_PASSWORD:
                 try:
-                    # Import and run Philippines demo loader
-                    import sys
+                    import subprocess
                     import logging
                     from pathlib import Path
                     
                     logger = logging.getLogger(__name__)
                     
-                    # Add project root to path
+                    # Use SQL-based loader for maximum reliability
+                    # Bypasses Django ORM, signals, auditlog, and all middleware
+                    logger.info("Starting SQL-based demo data loader...")
+                    print("[DEMO LOADER] Using SQL-based loader for reliability", flush=True)
+                    
+                    # Run the SQL loader as a subprocess to avoid Django interference
                     project_root = Path(settings.BASE_DIR)
-                    if str(project_root) not in sys.path:
-                        sys.path.insert(0, str(project_root))
+                    loader_script = project_root / 'load_demo_sql.py'
                     
-                    # Import the Philippines demo loader
-                    logger.info("Importing Philippines demo loader...")
-                    from load_philippines_demo import load_philippines_demo
+                    if not loader_script.exists():
+                        raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
                     
-                    # Run the demo data generator (40 employees by default)
-                    logger.info("Starting demo data generation (40 employees)...")
-                    success = load_philippines_demo(num_employees=40)
+                    # Run with Python directly, passing DATABASE_URL
+                    import os
+                    env = os.environ.copy()
+                    result = subprocess.run(
+                        ['python3', str(loader_script)],
+                        cwd=str(project_root),
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=60  # 1 minute timeout
+                    )
                     
-                    if success:
+                    # Log output
+                    print(f"[DEMO LOADER] Output:\n{result.stdout}", flush=True)
+                    if result.stderr:
+                        print(f"[DEMO LOADER] Errors:\n{result.stderr}", flush=True)
+                    
+                    if result.returncode == 0:
                         logger.info("Demo data loaded successfully!")
                         messages.success(
                             request, 
-                            _("Philippines demo data loaded successfully! "
-                              "40 employees created with attendance data for Sep & Oct 2025. "
-                              "Login with any employee username and password: Demo@2025")
+                            _("Demo data loaded successfully! "
+                              "Company, department, and 5 sample employees created. "
+                              "Login with username: admin, password: admin")
                         )
                     else:
-                        logger.error("Demo data loading returned False")
+                        logger.error(f"Demo data loading failed with exit code {result.returncode}")
                         messages.error(
                             request, 
-                            _("Failed to load demo data. The generator returned an error. Check server logs.")
+                            _("Failed to load demo data. Check server logs for details.")
                         )
                         
-                except ImportError as e:
-                    import traceback
-                    error_details = traceback.format_exc()
-                    logger.error(f"Import error: {error_details}")
-                    print(f"[IMPORT ERROR] {error_details}", flush=True)
-                    messages.error(
-                        request, 
-                        f"Import error: {str(e)}. Module might be missing or has syntax errors."
-                    )
+                except subprocess.TimeoutExpired:
+                    logger.error("Demo data loading timed out after 60 seconds")
+                    messages.error(request, _("Demo data loading timed out. Please try again."))
+                except FileNotFoundError as e:
+                    logger.error(f"Demo loader script not found: {e}")
+                    messages.error(request, _("Demo loader script not found. Please contact support."))
                 except Exception as e:
                     import traceback
                     error_details = traceback.format_exc()
                     logger.error(f"Demo data loading failed: {error_details}")
                     print(f"[ERROR] Demo data loading failed:\n{error_details}", flush=True)
-                    messages.error(
-                        request, 
-                        f"Error: {str(e)}"
-                    )
+                    messages.error(request, f"Error: {str(e)}")
             else:
                 messages.error(request, _("Database Authentication Failed"))
         return redirect(home)
