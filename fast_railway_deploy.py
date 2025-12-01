@@ -171,10 +171,25 @@ except Exception as e:
 
 # Then explicitly create any missing tables via fake migrations
 print("  - Ensuring all app tables exist...")
+
+# First, explicitly migrate Django's built-in apps (sessions, auth, contenttypes)
+print("  - Creating Django core tables (sessions, auth, contenttypes)...")
+try:
+    call_command('migrate', 'sessions', interactive=False, verbosity=0)
+    call_command('migrate', 'auth', interactive=False, verbosity=0)
+    call_command('migrate', 'contenttypes', interactive=False, verbosity=0)
+    call_command('migrate', 'admin', interactive=False, verbosity=0)
+    print("  ✓ Django core tables created")
+except Exception as e:
+    print(f"  ⚠ Core migration warning: {e}")
+
 missing_apps = []
 with connection.cursor() as cursor:
-    # Check critical tables
+    # Check critical tables including Django built-in ones
     critical_checks = [
+        ('django_session', 'sessions'),
+        ('auth_user', 'auth'),
+        ('django_content_type', 'contenttypes'),
         ('employee_employee', 'employee'),
         ('base_company', 'base'),
         ('attendance_attendance', 'attendance'),
@@ -241,6 +256,34 @@ if missing_tables:
         print(f"    - {table}")
     if len(missing_tables) > 5:
         print(f"    ... and {len(missing_tables) - 5} more")
+    
+    # Try one more migration to create missing tables
+    print(f"  - Attempting to create missing tables...")
+    try:
+        call_command('migrate', interactive=False, verbosity=0)
+        
+        # Re-check
+        still_missing = []
+        with connection.cursor() as cursor:
+            for table in missing_tables:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = %s
+                    )
+                """, [table])
+                if not cursor.fetchone()[0]:
+                    still_missing.append(table)
+        
+        if still_missing:
+            print(f"  ✗ CRITICAL: {len(still_missing)} tables still missing after migration retry!")
+            for table in still_missing:
+                print(f"    - {table}")
+            print(f"  → Manual database reset may be required")
+        else:
+            print(f"  ✓ All missing tables created successfully!")
+    except Exception as e:
+        print(f"  ⚠ Migration retry error: {e}")
 else:
     print(f"  ✓ All {len(critical_tables)} critical tables exist ({time.time() - step_start:.1f}s)")
 
