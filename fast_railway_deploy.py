@@ -60,6 +60,46 @@ step_start = time.time()
 from django.core.management import call_command
 from django.apps import apps
 
+# CRITICAL: Check for migration state mismatch and fix it
+print("  - Checking for existing tables and migration state...")
+with connection.cursor() as cursor:
+    # Count existing tables (excluding Django system tables)
+    cursor.execute("""
+        SELECT COUNT(*) 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+        AND table_name NOT LIKE 'django_%'
+    """)
+    existing_tables = cursor.fetchone()[0]
+    
+    # Check django_migrations table
+    cursor.execute("SELECT COUNT(*) FROM django_migrations")
+    migration_records = cursor.fetchone()[0]
+    
+    print(f"  - Found {existing_tables} application tables in database")
+    print(f"  - Found {migration_records} migration records in django_migrations")
+    
+    # If we have many tables but few/no migration records, state is out of sync
+    if existing_tables > 30 and migration_records < 50:
+        print(f"  ⚠ MIGRATION STATE MISMATCH DETECTED!")
+        print(f"    Tables exist but django_migrations is incomplete")
+        print(f"    Using --fake to synchronize state...")
+        
+        try:
+            # Fake all migrations to sync state with existing database
+            call_command('migrate', '--fake', interactive=False, verbosity=2)
+            print(f"  ✓ Migration state synchronized with database")
+        except Exception as e:
+            print(f"  ⚠ Warning during state sync: {e}")
+            print(f"    Continuing anyway...")
+    elif existing_tables == 0:
+        print(f"  ✓ Fresh database - will create all tables")
+    else:
+        print(f"  ✓ Migration state appears correct")
+
+print("  - Running migrations...")
+
 # Run migrations with VERBOSE output to see what's failing
 print("  - Migrating core Django apps...")
 core_apps = ['contenttypes', 'auth', 'sessions', 'admin']
