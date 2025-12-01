@@ -48,6 +48,14 @@ step_start = time.time()
 from django.core.management import call_command
 from django.apps import apps
 
+# CRITICAL: Generate migrations for ALL apps (some apps have no migrations!)
+print("  - Generating migrations for all apps...")
+try:
+    call_command('makemigrations', interactive=False, verbosity=0)
+    print("  ✓ Migrations generated")
+except Exception as e:
+    print(f"  ⚠ makemigrations warning: {e}")
+
 # First, run migrate normally
 print("  - Running migrations...")
 try:
