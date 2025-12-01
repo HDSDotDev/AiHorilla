@@ -30,7 +30,23 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'horilla.settings')
 # Skip schedulers during demo data loading to prevent queries on potentially missing tables
 os.environ['SKIP_SCHEDULERS'] = '1'
 
+# Disable auditlog during demo data loading to prevent it from querying missing related tables
+os.environ['DJANGO_DISABLE_AUDITLOG'] = '1'
+
 django.setup()
+
+# After django.setup(), disable auditlog signal receivers
+try:
+    import auditlog
+    from django.db.models.signals import post_save, post_delete
+    from auditlog.models import LogEntry
+    
+    # Disconnect auditlog receivers to prevent queries on missing tables
+    post_save.disconnect(dispatch_uid='auditlog_post_save')
+    post_delete.disconnect(dispatch_uid='auditlog_post_delete')
+    print("✓ Auditlog signals disabled for demo data loading")
+except Exception as e:
+    print(f"Note: Could not disable auditlog: {e}")
 
 from django.contrib.auth.models import User
 from django.db import transaction
