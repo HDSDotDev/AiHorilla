@@ -60,9 +60,9 @@ def load_minimal_demo_data():
         print("\n[2/8] Creating company...")
         cur.execute("""
             INSERT INTO base_company (company, address, country, state, city, zip, 
-                                      date_joining, icon, is_active)
+                                      icon, is_active, hq)
             VALUES ('BizBloqs Philippines', 'Manila, Philippines', 'Philippines', 
-                    'Metro Manila', 'Manila', '1000', '2025-01-01', '', true)
+                    'Metro Manila', 'Manila', '1000', '', true, false)
             ON CONFLICT DO NOTHING
             RETURNING id;
         """)
