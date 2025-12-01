@@ -15,23 +15,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='PayrollCountryConfig',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True, null=True, verbose_name='Created At')),
-                ('country', models.CharField(choices=[('USA', 'United States'), ('PH', 'Philippines')], max_length=3, unique=True, verbose_name='Country')),
-                ('is_active', models.BooleanField(default=False, help_text='Only one country can be active at a time', verbose_name='Is Active')),
-                ('company_id', models.ForeignKey(blank=True, help_text='Leave blank to apply globally', null=True, on_delete=django.db.models.deletion.CASCADE, to='base.company', verbose_name='Company')),
-                ('created_by', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='Created By')),
-                ('modified_by', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_modified_by', to=settings.AUTH_USER_MODEL, verbose_name='Modified By')),
-            ],
-            options={
-                'verbose_name': 'Payroll Country Configuration',
-                'verbose_name_plural': 'Payroll Country Configurations',
-                'ordering': ['country'],
-            },
-        ),
-        migrations.CreateModel(
             name='PhilippinesCOLA',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
