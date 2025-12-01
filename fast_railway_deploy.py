@@ -41,35 +41,62 @@ except Exception as e:
     print(f"  ✗ Database connection failed: {e}")
     sys.exit(1)
 
-# Create all tables using fix_database_tables.py approach
+# Create all tables - force migrate with fake-initial to ensure all tables exist
 print("\n[3/6] Creating database tables...")
 step_start = time.time()
 
-# Import fix_database_tables as module and run it
-print("  - Running two-pass table creation...")
-import subprocess
-result = subprocess.run(
-    [sys.executable, 'fix_database_tables.py'],
-    capture_output=True,
-    text=True,
-    timeout=600  # 10 minute timeout
-)
+from django.core.management import call_command
+from django.apps import apps
 
-if result.returncode == 0:
-    print(f"  ✓ All tables created ({time.time() - step_start:.1f}s)")
-    # Show summary from output
-    lines = result.stdout.split('\n')
-    for line in lines:
-        if 'tables created' in line.lower() or 'verified' in line.lower():
-            print(f"    {line.strip()}")
-else:
-    print(f"  ⚠ Table creation had issues (exit code {result.returncode})")
-    # Show last 10 lines of output
-    lines = result.stdout.split('\n')
-    for line in lines[-10:]:
-        if line.strip():
-            print(f"    {line.strip()}")
-    # Don't exit - continue to verification
+# First, run migrate normally
+print("  - Running migrations...")
+try:
+    call_command('migrate', '--run-syncdb', interactive=False, verbosity=0)
+    print("  ✓ Initial migrations complete")
+except Exception as e:
+    print(f"  ⚠ Migration warning: {e}")
+
+# Then explicitly create any missing tables via fake migrations
+print("  - Ensuring all app tables exist...")
+missing_apps = []
+with connection.cursor() as cursor:
+    # Check critical tables
+    critical_checks = [
+        ('employee_employee', 'employee'),
+        ('base_company', 'base'),
+        ('attendance_attendance', 'attendance'),
+        ('leave_leaverequest', 'leave'),
+        ('payroll_payslip', 'payroll'),
+    ]
+    
+    for table_name, app_name in critical_checks:
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = %s
+            )
+        """, [table_name])
+        
+        if not cursor.fetchone()[0]:
+            missing_apps.append(app_name)
+            print(f"  ⚠ Missing table: {table_name}")
+
+# If any critical tables missing, try fake-initial then migrate
+if missing_apps:
+    print(f"  - Running fake-initial for {len(set(missing_apps))} apps...")
+    for app in set(missing_apps):
+        try:
+            call_command('migrate', app, '--fake-initial', interactive=False, verbosity=0)
+        except Exception as e:
+            print(f"    ⚠ {app}: {e}")
+    
+    # Re-run migrate
+    try:
+        call_command('migrate', '--run-syncdb', interactive=False, verbosity=0)
+    except Exception:
+        pass
+
+print(f"  ✓ Table creation complete ({time.time() - step_start:.1f}s)")
 
 # Verify critical tables
 print("\n[4/6] Verifying critical tables...")
