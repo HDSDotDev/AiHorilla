@@ -41,43 +41,34 @@ except Exception as e:
     print(f"  ✗ Database connection failed: {e}")
     sys.exit(1)
 
-# Create all tables using proven two-pass approach
+# Create all tables using fix_database_tables.py approach
 print("\n[3/6] Creating database tables...")
 step_start = time.time()
-try:
-    from django.core.management import call_command
-    from django.apps import apps
-    
-    # Run makemigrations first
-    print("  - Generating migrations...")
-    call_command('makemigrations', interactive=False, verbosity=0)
-    
-    # Two-pass table creation using migrations
-    print("  - Pass 1: Core Django tables...")
-    try:
-        call_command('migrate', 'contenttypes', interactive=False, verbosity=0)
-        call_command('migrate', 'auth', interactive=False, verbosity=0)
-        call_command('migrate', 'sessions', interactive=False, verbosity=0)
-        call_command('migrate', 'admin', interactive=False, verbosity=0)
-    except Exception as e:
-        print(f"    ⚠ Core migrations warning: {e}")
-    
-    print("  - Pass 2: Application tables...")
-    # Use run_syncdb to force table creation even without migrations
-    try:
-        call_command('migrate', interactive=False, verbosity=0, run_syncdb=True)
-    except Exception as e:
-        print(f"    ⚠ Migration warning: {e}")
-        # Try without run_syncdb
-        try:
-            call_command('migrate', interactive=False, verbosity=0)
-        except Exception as e2:
-            print(f"    ⚠ Second attempt warning: {e2}")
-    
-    print(f"  ✓ Table creation complete ({time.time() - step_start:.1f}s)")
-    
-except Exception as e:
-    print(f"  ✗ Table creation failed: {e}")
+
+# Import fix_database_tables as module and run it
+print("  - Running two-pass table creation...")
+import subprocess
+result = subprocess.run(
+    [sys.executable, 'fix_database_tables.py'],
+    capture_output=True,
+    text=True,
+    timeout=600  # 10 minute timeout
+)
+
+if result.returncode == 0:
+    print(f"  ✓ All tables created ({time.time() - step_start:.1f}s)")
+    # Show summary from output
+    lines = result.stdout.split('\n')
+    for line in lines:
+        if 'tables created' in line.lower() or 'verified' in line.lower():
+            print(f"    {line.strip()}")
+else:
+    print(f"  ⚠ Table creation had issues (exit code {result.returncode})")
+    # Show last 10 lines of output
+    lines = result.stdout.split('\n')
+    for line in lines[-10:]:
+        if line.strip():
+            print(f"    {line.strip()}")
     # Don't exit - continue to verification
 
 # Verify critical tables
