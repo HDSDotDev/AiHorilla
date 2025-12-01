@@ -83,14 +83,20 @@ def load_minimal_demo_data():
         # 3. Create department
         print("\n[3/8] Creating department...")
         cur.execute("""
-            INSERT INTO base_department (department, company_id_id, is_active)
-            VALUES ('Engineering', %s, true)
+            INSERT INTO base_department (department, is_active)
+            VALUES ('Engineering', true)
             ON CONFLICT DO NOTHING
             RETURNING id;
-        """, (company_id,))
+        """)
         dept_result = cur.fetchone()
         if dept_result:
             dept_id = dept_result[0]
+            # Link department to company via ManyToMany junction table
+            cur.execute("""
+                INSERT INTO base_department_company_id (department_id, company_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (dept_id, company_id))
             print(f"  ✓ Department created (ID: {dept_id})")
         else:
             cur.execute("SELECT id FROM base_department WHERE department='Engineering' LIMIT 1")
@@ -101,14 +107,20 @@ def load_minimal_demo_data():
         # 4. Create job position
         print("\n[4/8] Creating job position...")
         cur.execute("""
-            INSERT INTO base_jobposition (job_position, department_id_id, company_id_id, is_active)
-            VALUES ('Software Engineer', %s, %s, true)
+            INSERT INTO base_jobposition (job_position, department_id_id, is_active)
+            VALUES ('Software Engineer', %s, true)
             ON CONFLICT DO NOTHING
             RETURNING id;
-        """, (dept_id, company_id))
+        """, (dept_id,))
         job_result = cur.fetchone()
         if job_result:
             job_id = job_result[0]
+            # Link job position to company via ManyToMany junction table
+            cur.execute("""
+                INSERT INTO base_jobposition_company_id (jobposition_id, company_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (job_id, company_id))
             print(f"  ✓ Job position created (ID: {job_id})")
         else:
             cur.execute("SELECT id FROM base_jobposition WHERE job_position='Software Engineer' LIMIT 1")
@@ -119,15 +131,20 @@ def load_minimal_demo_data():
         # 5. Create shift
         print("\n[5/8] Creating employee shift...")
         cur.execute("""
-            INSERT INTO base_employeeshift (employee_shift, days, company_id_id, is_night_shift, 
-                                            is_active, rotate_after_day, rotate_every_weekend, based_on)
-            VALUES ('Day Shift', 5, %s, false, true, 0, false, 'daily')
+            INSERT INTO base_employeeshift (employee_shift, weekly_full_time, full_time, is_active)
+            VALUES ('Day Shift', '40:00', '200:00', true)
             ON CONFLICT DO NOTHING
             RETURNING id;
-        """, (company_id,))
+        """)
         shift_result = cur.fetchone()
         if shift_result:
             shift_id = shift_result[0]
+            # Link shift to company via ManyToMany junction table
+            cur.execute("""
+                INSERT INTO base_employeeshift_company_id (employeeshift_id, company_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (shift_id, company_id))
             print(f"  ✓ Shift created (ID: {shift_id})")
         else:
             cur.execute("SELECT id FROM base_employeeshift WHERE employee_shift='Day Shift' LIMIT 1")
@@ -138,14 +155,20 @@ def load_minimal_demo_data():
         # 6. Create work type
         print("\n[6/8] Creating work type...")
         cur.execute("""
-            INSERT INTO base_worktype (work_type, company_id_id, is_active)
-            VALUES ('Full Time', %s, true)
+            INSERT INTO base_worktype (work_type, is_active)
+            VALUES ('Full Time', true)
             ON CONFLICT DO NOTHING
             RETURNING id;
-        """, (company_id,))
+        """)
         worktype_result = cur.fetchone()
         if worktype_result:
             worktype_id = worktype_result[0]
+            # Link work type to company via ManyToMany junction table
+            cur.execute("""
+                INSERT INTO base_worktype_company_id (worktype_id, company_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (worktype_id, company_id))
             print(f"  ✓ Work type created (ID: {worktype_id})")
         else:
             cur.execute("SELECT id FROM base_worktype WHERE work_type='Full Time' LIMIT 1")
@@ -156,14 +179,20 @@ def load_minimal_demo_data():
         # 7. Create employee type
         print("\n[7/8] Creating employee type...")
         cur.execute("""
-            INSERT INTO base_employeetype (employee_type, company_id_id, is_active)
-            VALUES ('Permanent', %s, true)
+            INSERT INTO base_employeetype (employee_type, is_active)
+            VALUES ('Permanent', true)
             ON CONFLICT DO NOTHING
             RETURNING id;
-        """, (company_id,))
+        """)
         emptype_result = cur.fetchone()
         if emptype_result:
             emptype_id = emptype_result[0]
+            # Link employee type to company via ManyToMany junction table
+            cur.execute("""
+                INSERT INTO base_employeetype_company_id (employeetype_id, company_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (emptype_id, company_id))
             print(f"  ✓ Employee type created (ID: {emptype_id})")
         else:
             cur.execute("SELECT id FROM base_employeetype WHERE employee_type='Permanent' LIMIT 1")
