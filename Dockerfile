@@ -27,11 +27,12 @@ RUN pip install --upgrade pip setuptools wheel && \
 COPY . .
 
 # Make entrypoint executable
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh /app/entrypoint_fast.sh
 
 # Create necessary directories
 RUN mkdir -p /app/staticfiles /app/media
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Use fast entrypoint for Railway deployments
+ENTRYPOINT ["/app/entrypoint_fast.sh"]
