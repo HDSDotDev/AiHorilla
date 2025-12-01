@@ -39,8 +39,8 @@ class HorillaAutomationConfig(AppConfig):
         model_choices.append(("pms.models.EmployeeKeyResult", "Employee Key Results"))
         model_choices[:] = list(set(model_choices))  # Update in-place
 
-        # Skip automation during initial setup
-        if os.environ.get('SKIP_DB_INIT_IN_READY'):
+        # Skip automation during initial setup or when schedulers are disabled
+        if os.environ.get('SKIP_DB_INIT_IN_READY') or os.environ.get('SKIP_SCHEDULERS'):
             return
         
         # Only start automation when running the server

@@ -17,6 +17,7 @@ class PayrollConfig(AppConfig):
     def ready(self) -> None:
         ready = super().ready()
         from django.urls import include, path
+        import os
 
         from horilla.horilla_settings import APPS
         from horilla.urls import urlpatterns
@@ -26,13 +27,16 @@ class PayrollConfig(AppConfig):
         urlpatterns.append(
             path("payroll/", include("payroll.urls.urls")),
         )
-        try:
-            from payroll.scheduler import auto_payslip_generate
+        
+        # Skip scheduler initialization if environment variable is set
+        if not os.environ.get('SKIP_SCHEDULERS'):
+            try:
+                from payroll.scheduler import auto_payslip_generate
 
-            auto_payslip_generate()
-        except:
-            """
-            Migrations are not affected
-            """
+                auto_payslip_generate()
+            except:
+                """
+                Migrations are not affected
+                """
 
         return ready

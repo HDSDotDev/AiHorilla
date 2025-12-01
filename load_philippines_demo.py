@@ -26,6 +26,10 @@ import random
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'horilla.settings')
+
+# Skip schedulers during demo data loading to prevent queries on potentially missing tables
+os.environ['SKIP_SCHEDULERS'] = '1'
+
 django.setup()
 
 from django.contrib.auth.models import User
