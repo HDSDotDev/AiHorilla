@@ -60,11 +60,53 @@ step_start = time.time()
 from django.core.management import call_command
 from django.apps import apps
 
-# CRITICAL: NUCLEAR OPTION - Just run migrations without any faking
-# The root issue is circular dependencies between base and employee apps
-# Faking causes more problems than it solves
-print("  - Running all migrations (skipping state detection)...")
-print("  ⚠ WARNING: Ignoring 'relation already exists' errors from previous incomplete deployments")
+# CRITICAL FIX: Check if employee_employee exists FIRST
+# If missing, it means previous deployments left partial tables that block new migrations
+# Solution: WIPE THE DATABASE and start from scratch
+print("  - Checking if employee_employee table exists...")
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'employee_employee'
+        )
+    """)
+    employee_table_exists = cursor.fetchone()[0]
+    
+    # Check if ANY tables exist
+    cursor.execute("""
+        SELECT COUNT(*) 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+    """)
+    total_tables = cursor.fetchone()[0]
+    
+    if total_tables > 10 and not employee_table_exists:
+        print(f"  ⚠️  CORRUPTED DATABASE STATE DETECTED!")
+        print(f"     Found {total_tables} tables but employee_employee is MISSING")
+        print(f"     This means previous deployments left partial broken state")
+        print(f"  ")
+        print(f"  🔥 NUCLEAR OPTION: Wiping entire database to start fresh...")
+        print(f"  ")
+        
+        try:
+            # Drop ALL tables and recreate schema
+            cursor.execute("DROP SCHEMA public CASCADE")
+            cursor.execute("CREATE SCHEMA public")
+            cursor.execute("GRANT ALL ON SCHEMA public TO PUBLIC")
+            cursor.execute("GRANT ALL ON SCHEMA public TO postgres")
+            
+            print(f"  ✓ Database wiped clean - all {total_tables} tables dropped")
+            print(f"  ✓ Schema recreated - ready for fresh migrations")
+        except Exception as wipe_error:
+            print(f"  ✗ DATABASE WIPE FAILED: {wipe_error}")
+            print(f"     Manual intervention required in Railway PostgreSQL dashboard")
+            sys.exit(1)
+    elif employee_table_exists:
+        print(f"  ✓ employee_employee table exists - database state is good")
+    else:
+        print(f"  ✓ Fresh database - no tables exist yet")
 
 print("  - Running migrations...")
 
