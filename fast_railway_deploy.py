@@ -82,9 +82,44 @@ with connection.cursor() as cursor:
     """)
     total_tables = cursor.fetchone()[0]
     
+    # Check for corrupted database state (missing tables OR missing columns)
+    corruption_detected = False
+    corruption_reasons = []
+    
     if total_tables > 10 and not employee_table_exists:
+        corruption_detected = True
+        corruption_reasons.append(f"Found {total_tables} tables but employee_employee is MISSING")
+    
+    # Check for missing critical columns (indicates partial migration state)
+    if employee_table_exists:
+        cursor.execute("""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'employee_employee' AND column_name = 'employee_user_id'
+        """)
+        if not cursor.fetchone():
+            corruption_detected = True
+            corruption_reasons.append("employee_employee table missing employee_user_id column")
+    
+    # Check payroll table columns
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'payroll_payrollcountryconfig'
+        )
+    """)
+    if cursor.fetchone()[0]:
+        cursor.execute("""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'payroll_payrollcountryconfig' AND column_name = 'activated_by_id'
+        """)
+        if not cursor.fetchone():
+            corruption_detected = True
+            corruption_reasons.append("payroll_payrollcountryconfig table missing activated_by_id column")
+    
+    if corruption_detected:
         print(f"  ⚠️  CORRUPTED DATABASE STATE DETECTED!")
-        print(f"     Found {total_tables} tables but employee_employee is MISSING")
+        for reason in corruption_reasons:
+            print(f"     - {reason}")
         print(f"     This means previous deployments left partial broken state")
         print(f"  ")
         print(f"  🔥 NUCLEAR OPTION: Wiping entire database to start fresh...")
@@ -104,24 +139,30 @@ with connection.cursor() as cursor:
             print(f"     Manual intervention required in Railway PostgreSQL dashboard")
             sys.exit(1)
     elif employee_table_exists:
-        print(f"  ✓ employee_employee table exists - database state is good")
+        print(f"  ✓ employee_employee table exists with all required columns")
     else:
         print(f"  ✓ Fresh database - no tables exist yet")
 
 print("  - Running migrations...")
 
-# Strategy: Run ALL migrations at once and let Django handle dependencies
-# If tables already exist, migrations will fail but that's OK - we'll verify tables exist after
-print("  - Running migrate command (will show errors for existing tables - that's expected)...")
+# Strategy: Handle partial table state by using --fake-initial to skip table creation,
+# then apply column additions and other schema modifications
+print("  - Running migrate with --fake-initial to handle existing tables...")
 try:
-    call_command('migrate', interactive=False, verbosity=0)
-    print("  ✓ Migrations completed")
+    # Use --fake-initial to mark initial migrations as applied if tables exist
+    # This allows subsequent migrations (that add columns/constraints) to run
+    call_command('migrate', '--fake-initial', interactive=False, verbosity=0)
+    print("  ✓ Migrations completed (using --fake-initial for existing tables)")
 except Exception as e:
     error_msg = str(e)
-    if "already exists" in error_msg:
-        print(f"  ⚠ Some tables already existed (continuing...)")
-    else:
-        print(f"  ⚠ Migration error: {error_msg[:200]}")
+    print(f"  ⚠ Migration warning: {error_msg[:200]}")
+    # Try again without --fake-initial
+    try:
+        print("  - Retrying without --fake-initial...")
+        call_command('migrate', interactive=False, verbosity=0)
+        print("  ✓ Retry successful")
+    except Exception as retry_error:
+        print(f"  ⚠ Retry also failed: {str(retry_error)[:200]}")
 
 # NUCLEAR OPTION: If employee_employee doesn't exist, wipe django_migrations and start fresh
 print("  - Verifying employee_employee table...")
