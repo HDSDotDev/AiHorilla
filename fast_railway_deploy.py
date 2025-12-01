@@ -48,21 +48,32 @@ step_start = time.time()
 from django.core.management import call_command
 from django.apps import apps
 
-# CRITICAL: Generate migrations for ALL apps (some apps have no migrations!)
-print("  - Generating migrations for all apps...")
-try:
-    call_command('makemigrations', interactive=False, verbosity=0)
-    print("  ✓ Migrations generated")
-except Exception as e:
-    print(f"  ⚠ makemigrations warning: {e}")
+# Run migrations with explicit app list to ensure all tables created
+print("  - Migrating core Django apps...")
+core_apps = ['contenttypes', 'auth', 'sessions', 'admin']
+for app in core_apps:
+    try:
+        call_command('migrate', app, interactive=False, verbosity=0)
+    except Exception as e:
+        print(f"  ⚠ {app}: {e}")
 
-# First, run migrate normally
-print("  - Running migrations...")
+# Explicitly migrate critical apps
+print("  - Migrating critical application apps...")
+critical_apps = ['base', 'employee', 'attendance', 'leave', 'payroll', 'recruitment']
+for app in critical_apps:
+    try:
+        call_command('migrate', app, interactive=False, verbosity=0)
+        print(f"  ✓ {app} migrated")
+    except Exception as e:
+        print(f"  ⚠ {app}: {e}")
+
+# Migrate remaining apps
+print("  - Migrating remaining apps...")
 try:
     call_command('migrate', '--run-syncdb', interactive=False, verbosity=0)
-    print("  ✓ Initial migrations complete")
+    print("  ✓ All migrations complete")
 except Exception as e:
-    print(f"  ⚠ Migration warning: {e}")
+    print(f"  ⚠ Final migration warning: {e}")
 
 # Then explicitly create any missing tables via fake migrations
 print("  - Ensuring all app tables exist...")
