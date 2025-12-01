@@ -85,6 +85,7 @@ with connection.cursor() as cursor:
     # Check for corrupted database state (missing tables OR missing columns)
     corruption_detected = False
     corruption_reasons = []
+    fresh_database = False  # Will be set to True if we wipe or if no tables exist
     
     if total_tables > 10 and not employee_table_exists:
         corruption_detected = True
@@ -134,35 +135,49 @@ with connection.cursor() as cursor:
             
             print(f"  ✓ Database wiped clean - all {total_tables} tables dropped")
             print(f"  ✓ Schema recreated - ready for fresh migrations")
+            # Set flag to indicate fresh database state
+            fresh_database = True
         except Exception as wipe_error:
             print(f"  ✗ DATABASE WIPE FAILED: {wipe_error}")
             print(f"     Manual intervention required in Railway PostgreSQL dashboard")
             sys.exit(1)
     elif employee_table_exists:
         print(f"  ✓ employee_employee table exists with all required columns")
+        fresh_database = False
     else:
         print(f"  ✓ Fresh database - no tables exist yet")
+        fresh_database = True
 
 print("  - Running migrations...")
 
-# Strategy: Handle partial table state by using --fake-initial to skip table creation,
-# then apply column additions and other schema modifications
-print("  - Running migrate with --fake-initial to handle existing tables...")
-try:
-    # Use --fake-initial to mark initial migrations as applied if tables exist
-    # This allows subsequent migrations (that add columns/constraints) to run
-    call_command('migrate', '--fake-initial', interactive=False, verbosity=0)
-    print("  ✓ Migrations completed (using --fake-initial for existing tables)")
-except Exception as e:
-    error_msg = str(e)
-    print(f"  ⚠ Migration warning: {error_msg[:200]}")
-    # Try again without --fake-initial
+# CRITICAL: On fresh database, run migrations NORMALLY without --fake-initial
+# --fake-initial causes migrations to skip table creation, leading to partial state
+if fresh_database:
+    print("  - Running migrations on CLEAN database (no --fake-initial)...")
     try:
-        print("  - Retrying without --fake-initial...")
-        call_command('migrate', interactive=False, verbosity=0)
-        print("  ✓ Retry successful")
-    except Exception as retry_error:
-        print(f"  ⚠ Retry also failed: {str(retry_error)[:200]}")
+        # On clean database, run migrations normally - this will create ALL tables with ALL columns
+        call_command('migrate', interactive=False, verbosity=1)
+        print("  ✓ All migrations completed successfully on clean database")
+    except Exception as e:
+        error_msg = str(e)
+        print(f"  ✗ MIGRATION FAILED: {error_msg[:500]}")
+        print(f"  This should NOT happen on a fresh database!")
+        sys.exit(1)
+else:
+    # Only use --fake-initial strategy if database already has tables
+    print("  - Running migrate with --fake-initial to handle existing tables...")
+    try:
+        call_command('migrate', '--fake-initial', interactive=False, verbosity=0)
+        print("  ✓ Migrations completed (using --fake-initial for existing tables)")
+    except Exception as e:
+        error_msg = str(e)
+        print(f"  ⚠ Migration warning: {error_msg[:200]}")
+        try:
+            print("  - Retrying without --fake-initial...")
+            call_command('migrate', interactive=False, verbosity=0)
+            print("  ✓ Retry successful")
+        except Exception as retry_error:
+            print(f"  ⚠ Retry also failed: {str(retry_error)[:200]}")
 
 # NUCLEAR OPTION: If employee_employee doesn't exist, wipe django_migrations and start fresh
 print("  - Verifying employee_employee table...")
