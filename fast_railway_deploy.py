@@ -48,29 +48,54 @@ step_start = time.time()
 from django.core.management import call_command
 from django.apps import apps
 
-# Run migrations with explicit app list to ensure all tables created
+# Run migrations with VERBOSE output to see what's failing
 print("  - Migrating core Django apps...")
 core_apps = ['contenttypes', 'auth', 'sessions', 'admin']
 for app in core_apps:
     try:
-        call_command('migrate', app, interactive=False, verbosity=0)
+        call_command('migrate', app, interactive=False, verbosity=1)
     except Exception as e:
-        print(f"  ⚠ {app}: {e}")
+        print(f"  ✗ {app} FAILED: {e}")
 
-# Explicitly migrate critical apps
+# Explicitly migrate critical apps with dependencies in order
 print("  - Migrating critical application apps...")
-critical_apps = ['base', 'employee', 'attendance', 'leave', 'payroll', 'recruitment']
+critical_apps = [
+    'horilla_audit',  # employee depends on this
+    'base',           # employee depends on this
+    'employee',       # CRITICAL - creates employee_employee
+    'attendance', 
+    'leave', 
+    'payroll', 
+    'recruitment'
+]
 for app in critical_apps:
     try:
-        call_command('migrate', app, interactive=False, verbosity=0)
-        print(f"  ✓ {app} migrated")
+        print(f"  - Migrating {app}...")
+        call_command('migrate', app, interactive=False, verbosity=1)
+        print(f"  ✓ {app} completed")
     except Exception as e:
-        print(f"  ⚠ {app}: {e}")
+        print(f"  ✗ {app} FAILED: {str(e)[:200]}")
+        import traceback
+        traceback.print_exc()
+
+# Verify employee_employee table was created
+print("  - Verifying employee_employee table...")
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'employee_employee'
+        )
+    """)
+    if cursor.fetchone()[0]:
+        print("  ✓ employee_employee table EXISTS")
+    else:
+        print("  ✗ employee_employee table MISSING - migration failed!")
 
 # Migrate remaining apps
 print("  - Migrating remaining apps...")
 try:
-    call_command('migrate', '--run-syncdb', interactive=False, verbosity=0)
+    call_command('migrate', interactive=False, verbosity=0)
     print("  ✓ All migrations complete")
 except Exception as e:
     print(f"  ⚠ Final migration warning: {e}")
