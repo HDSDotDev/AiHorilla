@@ -1,6 +1,8 @@
 # Generated migration for adding country field to Deduction model
+# NOTE: The country field already exists in migration 0001_initial.py (line 101)
+# This migration is kept for dependency chain but has no operations
 
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -10,14 +12,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='deduction',
-            name='country',
-            field=models.CharField(
-                choices=[('USA', 'United States'), ('PH', 'Philippines'), ('GLOBAL', 'All Countries')],
-                default='GLOBAL',
-                help_text='Country where this deduction applies. Select "All Countries" for universal deductions.',
-                max_length=10
-            ),
-        ),
+        # No operations - country field already exists in Deduction model from migration 0001
     ]
