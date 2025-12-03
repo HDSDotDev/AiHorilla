@@ -236,7 +236,7 @@ def initialize_database_condition():
 
 
 def load_demo_database(request):
-    """Load minimal demo data using SQL-based loader (reliable, fast)"""
+    """Load comprehensive demo data (detects database type automatically)"""
     if initialize_database_condition():
         if request.method == "POST":
             if request.POST.get("load_data_password") == DB_INIT_PASSWORD:
@@ -244,31 +244,40 @@ def load_demo_database(request):
                     import subprocess
                     import logging
                     from pathlib import Path
+                    from django.db import connection
                     
                     logger = logging.getLogger(__name__)
-                    
-                    # Use SQL-based loader for maximum reliability
-                    # Bypasses Django ORM, signals, auditlog, and all middleware
-                    logger.info("Starting SQL-based demo data loader...")
-                    print("[DEMO LOADER] Using SQL-based loader for reliability", flush=True)
-                    
-                    # Run the SQL loader as a subprocess to avoid Django interference
                     project_root = Path(settings.BASE_DIR)
-                    loader_script = project_root / 'load_demo_sql.py'
+                    
+                    # Detect database type and choose appropriate loader
+                    if connection.vendor == 'postgresql':
+                        # PostgreSQL: Use SQL-based loader (fast, bypasses ORM)
+                        logger.info("PostgreSQL detected - using SQL-based loader...")
+                        print("[DEMO LOADER] PostgreSQL: Using SQL-based loader for speed", flush=True)
+                        loader_script = project_root / 'load_demo_sql.py'
+                        python_cmd = 'python3'
+                    else:
+                        # SQLite/other: Use ORM-based comprehensive loader
+                        logger.info(f"{connection.vendor} detected - using ORM-based loader...")
+                        print(f"[DEMO LOADER] {connection.vendor}: Using comprehensive Philippines demo loader", flush=True)
+                        loader_script = project_root / 'load_philippines_demo.py'
+                        # Use python or python3 depending on OS
+                        import sys
+                        python_cmd = sys.executable
                     
                     if not loader_script.exists():
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
                     
-                    # Run with Python directly, passing DATABASE_URL
+                    # Run the appropriate loader
                     import os
                     env = os.environ.copy()
                     result = subprocess.run(
-                        ['python3', str(loader_script)],
+                        [python_cmd, str(loader_script)],
                         cwd=str(project_root),
                         env=env,
                         capture_output=True,
                         text=True,
-                        timeout=60  # 1 minute timeout
+                        timeout=300  # 5 minutes for comprehensive data
                     )
                     
                     # Log output
@@ -286,11 +295,20 @@ def load_demo_database(request):
                             login(request, admin_user, backend='django.contrib.auth.backends.ModelBackend')
                             logger.info("Auto-logged in as admin user")
                             
-                            messages.success(
-                                request, 
-                                _("Demo data loaded successfully! "
-                                  "Welcome to the demo environment with sample company, department, and employees.")
-                            )
+                            # Different messages for different loaders
+                            if connection.vendor == 'postgresql':
+                                messages.success(
+                                    request, 
+                                    _("Demo data loaded successfully! "
+                                      "Welcome to the demo environment with sample company, departments, and employees.")
+                                )
+                            else:
+                                messages.success(
+                                    request, 
+                                    _("Comprehensive Philippines demo data loaded! "
+                                      "Explore: Employees, Attendance, Leave Requests, Shift Requests, "
+                                      "Overtime Approvals, Assets, Helpdesk Tickets, and Payroll.")
+                                )
                             # Redirect to home after successful login
                             return redirect(home)
                         except User.DoesNotExist:

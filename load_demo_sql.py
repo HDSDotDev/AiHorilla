@@ -71,27 +71,7 @@ def load_minimal_demo_data():
             admin_id = cur.fetchone()[0]
             print(f"  ✓ Admin user exists (ID: {admin_id})")
         
-        # Create admin employee record
-        print("  - Creating admin employee record...")
-        cur.execute("""
-            INSERT INTO employee_employee (employee_user_id_id, employee_first_name, employee_last_name,
-                                           email, phone, badge_id, is_active)
-            VALUES (%s, 'Admin', 'User', 'admin@example.com', '000-000-0000', 'ADMIN001', true)
-            ON CONFLICT (email) DO NOTHING
-            RETURNING id;
-        """, (admin_id,))
-        admin_emp_result = cur.fetchone()
-        if admin_emp_result:
-            admin_emp_id = admin_emp_result[0]
-            print(f"  ✓ Admin employee created (ID: {admin_emp_id})")
-        else:
-            cur.execute("SELECT id FROM employee_employee WHERE email='admin@example.com'")
-            result = cur.fetchone()
-            if result:
-                admin_emp_id = result[0]
-                print(f"  ✓ Admin employee exists (ID: {admin_emp_id})")
-        
-        # 2. Create company
+        # 2. Create company FIRST (needed for employee work info)
         print("\n[2/8] Creating company...")
         cur.execute("""
             INSERT INTO base_company (company, address, country, state, city, zip, 
@@ -108,12 +88,43 @@ def load_minimal_demo_data():
         else:
             cur.execute("SELECT id FROM base_company WHERE company='BizBloqs Philippines'")
             result = cur.fetchone()
-            company_id = result[0] if result else None
-            print(f"  ✓ Company exists (ID: {company_id})")
+            if result:
+                company_id = result[0]
+                print(f"  ✓ Company exists (ID: {company_id})")
         
-        if not company_id:
-            print("  ✗ Could not create or find company")
-            return False
+        # Create admin employee record
+        print("  - Creating admin employee record...")
+        cur.execute("""
+            INSERT INTO employee_employee (employee_user_id_id, employee_first_name, employee_last_name,
+                                           email, phone, badge_id, is_active)
+            VALUES (%s, 'Admin', 'User', 'admin@example.com', '000-000-0000', 'ADMIN001', true)
+            ON CONFLICT (email) DO UPDATE SET employee_user_id_id = EXCLUDED.employee_user_id_id
+            RETURNING id;
+        """, (admin_id,))
+        admin_emp_result = cur.fetchone()
+        if admin_emp_result:
+            admin_emp_id = admin_emp_result[0]
+            print(f"  ✓ Admin employee created (ID: {admin_emp_id})")
+        else:
+            cur.execute("SELECT id FROM employee_employee WHERE email='admin@example.com'")
+            result = cur.fetchone()
+            if result:
+                admin_emp_id = result[0]
+                print(f"  ✓ Admin employee exists (ID: {admin_emp_id})")
+        
+        # Create EmployeeWorkInformation for admin (CRITICAL for CompanyMiddleware)
+        print("  - Creating admin employee work information...")
+        cur.execute("""
+            INSERT INTO employee_employeeworkinformation (employee_id_id, company_id_id)
+            VALUES (%s, %s)
+            ON CONFLICT (employee_id_id) DO UPDATE SET company_id_id = EXCLUDED.company_id_id
+            RETURNING employee_id_id;
+        """, (admin_emp_id, company_id))
+        work_info_result = cur.fetchone()
+        if work_info_result:
+            print(f"  ✓ Admin work info created (Employee: {work_info_result[0]})")
+        else:
+            print(f"  ⚠ Admin work info already exists")
         
         # 3. Create department
         print("\n[3/8] Creating department...")
