@@ -9,6 +9,19 @@ import sys
 import psycopg2
 from datetime import date, timedelta
 import random
+import hashlib
+import base64
+
+def make_password_hash(password, salt='demodata2025'):
+    """
+    Generate Django-compatible PBKDF2 SHA256 password hash
+    Compatible with Django 4.2's password hashing
+    """
+    iterations = 600000  # Django 4.2 default
+    key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), 
+                               salt.encode('utf-8'), iterations, dklen=32)
+    hash_b64 = base64.b64encode(key).decode('ascii').strip()
+    return f'pbkdf2_sha256${iterations}${salt}${hash_b64}'
 
 def get_db_connection():
     """Get PostgreSQL connection from DATABASE_URL"""
@@ -39,14 +52,16 @@ def load_minimal_demo_data():
         
         # 1. Create admin user if not exists
         print("\n[1/8] Creating admin user...")
+        admin_password_hash = make_password_hash('admin')
+        
         cur.execute("""
             INSERT INTO auth_user (password, last_login, is_superuser, username, first_name, 
                                    last_name, email, is_staff, is_active, date_joined)
-            VALUES ('pbkdf2_sha256$600000$demo$hashed', NULL, true, 'admin', 'Admin', 
+            VALUES (%s, NULL, true, 'admin', 'Admin', 
                     'User', 'admin@example.com', true, true, NOW())
             ON CONFLICT (username) DO NOTHING
             RETURNING id;
-        """)
+        """, (admin_password_hash,))
         admin_result = cur.fetchone()
         if admin_result:
             admin_id = admin_result[0]
@@ -212,15 +227,17 @@ def load_minimal_demo_data():
         
         employee_ids = []
         for first_name, last_name, username, email in employees:
-            # Create user
+            # Create user with password "Demo@2025"
+            employee_password_hash = make_password_hash('Demo@2025', salt=username)
+            
             cur.execute("""
                 INSERT INTO auth_user (password, last_login, is_superuser, username, first_name, 
                                        last_name, email, is_staff, is_active, date_joined)
-                VALUES ('pbkdf2_sha256$600000$demo$hashed', NULL, false, %s, %s, 
+                VALUES (%s, NULL, false, %s, %s, 
                         %s, %s, false, true, NOW())
                 ON CONFLICT (username) DO NOTHING
                 RETURNING id;
-            """, (username, first_name, last_name, email))
+            """, (employee_password_hash, username, first_name, last_name, email))
             user_result = cur.fetchone()
             if user_result:
                 user_id = user_result[0]

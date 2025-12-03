@@ -278,12 +278,24 @@ def load_demo_database(request):
                     
                     if result.returncode == 0:
                         logger.info("Demo data loaded successfully!")
-                        messages.success(
-                            request, 
-                            _("Demo data loaded successfully! "
-                              "Company, department, and 5 sample employees created. "
-                              "Login with username: admin, password: admin")
-                        )
+                        
+                        # Auto-login as admin user after demo data load
+                        from django.contrib.auth import login
+                        try:
+                            admin_user = User.objects.get(username='admin')
+                            login(request, admin_user, backend='django.contrib.auth.backends.ModelBackend')
+                            logger.info("Auto-logged in as admin user")
+                            
+                            messages.success(
+                                request, 
+                                _("Demo data loaded successfully! "
+                                  "Welcome to the demo environment with sample company, department, and employees.")
+                            )
+                            # Redirect to home after successful login
+                            return redirect(home)
+                        except User.DoesNotExist:
+                            logger.error("Admin user not found after demo data load")
+                            messages.error(request, _("Demo data loaded but admin user not found. Please login manually."))
                     else:
                         logger.error(f"Demo data loading failed with exit code {result.returncode}")
                         messages.error(
@@ -305,7 +317,7 @@ def load_demo_database(request):
                     messages.error(request, f"Error: {str(e)}")
             else:
                 messages.error(request, _("Database Authentication Failed"))
-        return redirect(home)
+        return redirect("/login/")
     return redirect("/")
 
 
