@@ -145,9 +145,4 @@ class Migration(migrations.Migration):
         migrations.DeleteModel(
             name='ThirteenthMonthPayConfig',
         ),
-        migrations.AddField(
-            model_name='philippinescola',
-            name='region',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='payroll.philippinesregion', verbose_name='Region'),
-        ),
     ]
