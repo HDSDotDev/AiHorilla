@@ -376,14 +376,38 @@ def initialize_database_user(request):
         user = User.objects.create_superuser(
             username=username, email=email, password=password
         )
-        employee = Employee()
-        employee.employee_user_id = user
-        employee.badge_id = badge_id
-        employee.employee_first_name = first_name
-        employee.employee_last_name = last_name
-        employee.email = email
-        employee.phone = phone
-        employee.save()
+        
+        # Check if employee already exists (shouldn't happen, but handle it)
+        existing_employee = Employee.objects.filter(employee_user_id=user).first()
+        if existing_employee:
+            employee = existing_employee
+        else:
+            employee = Employee()
+            employee.employee_user_id = user
+            employee.badge_id = badge_id or f"EMP{user.id}"  # Generate badge if not provided
+            employee.employee_first_name = first_name
+            employee.employee_last_name = last_name
+            employee.email = email
+            employee.phone = phone or "N/A"  # Provide default if not given
+            employee.is_active = True
+            try:
+                employee.save()
+            except Exception as e:
+                # Log the error but continue
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error creating employee during initialization: {e}")
+                # Try to create with minimal data
+                employee = Employee.objects.create(
+                    employee_user_id=user,
+                    employee_first_name=first_name,
+                    employee_last_name=last_name or "",
+                    email=email,
+                    phone=phone or "N/A",
+                    badge_id=badge_id or f"EMP{user.id}",
+                    is_active=True
+                )
+        
         user = authenticate(request, username=username, password=password)
         login(request, user)
         return render(
