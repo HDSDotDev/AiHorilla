@@ -231,7 +231,7 @@ def load_minimal_demo_data():
             # Create employee
             badge_id = f"EMP{1000 + len(employee_ids) + 1}"
             cur.execute("""
-                INSERT INTO employee_employee (employee_user_id, employee_first_name, employee_last_name,
+                INSERT INTO employee_employee (employee_user_id_id, employee_first_name, employee_last_name,
                                                email, phone, address, country, state, city, zip,
                                                dob, gender, qualification, experience, marital_status,
                                                children, emergency_contact, emergency_contact_name,
