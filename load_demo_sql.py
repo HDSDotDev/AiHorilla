@@ -253,9 +253,9 @@ def load_minimal_demo_data():
                         (employee_id_id, job_position_id_id, department_id_id, work_type_id_id,
                          employee_type_id_id, shift_id_id, company_id_id, location, 
                          email, mobile, reporting_manager_id_id, date_joining, 
-                         contract_end_date, basic_salary, salary_hour, is_active)
+                         contract_end_date, basic_salary, salary_hour)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, 'Manila Office', %s, '+63-XXX-XXXX',
-                            NULL, '2025-01-01', NULL, 50000, 0, true)
+                            NULL, '2025-01-01', NULL, 50000, 0)
                     ON CONFLICT DO NOTHING;
                 """, (emp_id, job_id, dept_id, worktype_id, emptype_id, shift_id, company_id, email))
                 
