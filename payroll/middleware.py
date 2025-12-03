@@ -64,14 +64,23 @@ class PayrollCountryMiddleware(MiddlewareMixin):
             # Check if table exists before querying (prevents errors during deployment)
             from django.db import connection
             with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_schema = 'public' 
-                        AND table_name = 'payroll_payrollcountryconfig'
-                    )
-                """)
-                table_exists = cursor.fetchone()[0]
+                if connection.vendor == 'sqlite':
+                    # SQLite: Use sqlite_master
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM sqlite_master 
+                        WHERE type='table' AND name='payroll_payrollcountryconfig'
+                    """)
+                    table_exists = cursor.fetchone()[0] > 0
+                else:
+                    # PostgreSQL: Use information_schema
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_schema = 'public' 
+                            AND table_name = 'payroll_payrollcountryconfig'
+                        )
+                    """)
+                    table_exists = cursor.fetchone()[0]
             
             if not table_exists:
                 # Table doesn't exist yet (during migration/deployment)
