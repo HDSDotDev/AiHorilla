@@ -373,43 +373,67 @@ def initialize_database_user(request):
         user = User.objects.filter(username=username).first()
         if user and not hasattr(user, "employee_get"):
             user.delete()
-        user = User.objects.create_superuser(
-            username=username, email=email, password=password
-        )
-        
-        # Check if employee already exists (shouldn't happen, but handle it)
-        existing_employee = Employee.objects.filter(employee_user_id=user).first()
-        if existing_employee:
-            employee = existing_employee
+        # Create or get superuser
+        user = User.objects.filter(username=username).first()
+        if user:
+            # Update existing user to superuser
+            user.is_superuser = True
+            user.is_staff = True
+            user.set_password(password)
+            user.email = email
+            user.save()
         else:
-            employee = Employee()
-            employee.employee_user_id = user
-            employee.badge_id = badge_id or f"EMP{user.id}"  # Generate badge if not provided
-            employee.employee_first_name = first_name
-            employee.employee_last_name = last_name
-            employee.email = email
-            employee.phone = phone or "N/A"  # Provide default if not given
-            employee.is_active = True
-            try:
-                employee.save()
-            except Exception as e:
-                # Log the error but continue
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Error creating employee during initialization: {e}")
-                # Try to create with minimal data
-                employee = Employee.objects.create(
+            user = User.objects.create_superuser(
+                username=username, email=email, password=password
+            )
+        
+        # CRITICAL: Ensure employee record exists and is linked
+        try:
+            # Try to get existing employee
+            employee = Employee.objects.filter(employee_user_id=user).first()
+            
+            if not employee:
+                # Create new employee with all required fields
+                from employee.models import Employee, EmployeeWorkInformation
+                
+                employee = Employee(
                     employee_user_id=user,
+                    badge_id=badge_id if badge_id else f"EMP{user.id}",
                     employee_first_name=first_name,
-                    employee_last_name=last_name or "",
+                    employee_last_name=last_name if last_name else "",
                     email=email,
-                    phone=phone or "N/A",
-                    badge_id=badge_id or f"EMP{user.id}",
+                    phone=phone if phone else "000-000-0000",
                     is_active=True
                 )
+                # Save employee first
+                employee.save()
+                
+                # The Employee.save() method should auto-create EmployeeWorkInformation
+                # but let's ensure it exists
+                if not hasattr(employee, 'employee_work_info'):
+                    EmployeeWorkInformation.objects.create(employee_id=employee)
+                
+            # Verify the relationship is established
+            user.refresh_from_db()
+            if not hasattr(user, 'employee_get'):
+                raise Exception("Employee relationship not established after save")
+                
+        except Exception as e:
+            import logging
+            import traceback
+            logger = logging.getLogger(__name__)
+            logger.error(f"Critical error creating employee: {e}")
+            logger.error(traceback.format_exc())
+            messages.error(request, f"Error creating employee: {str(e)}")
+            return render(request, "initialize_database/horilla_user_signup.html")
         
+        # Authenticate and login
         user = authenticate(request, username=username, password=password)
-        login(request, user)
+        if user:
+            login(request, user)
+        else:
+            messages.error(request, "Authentication failed after user creation")
+            return render(request, "initialize_database/horilla_user_signup.html")
         return render(
             request,
             "initialize_database/horilla_company.html",
