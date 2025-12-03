@@ -95,11 +95,11 @@ with connection.cursor() as cursor:
     if employee_table_exists:
         cursor.execute("""
             SELECT column_name FROM information_schema.columns 
-            WHERE table_name = 'employee_employee' AND column_name = 'employee_user_id'
+            WHERE table_name = 'employee_employee' AND column_name = 'employee_user_id_id'
         """)
         if not cursor.fetchone():
             corruption_detected = True
-            corruption_reasons.append("employee_employee table missing employee_user_id column")
+            corruption_reasons.append("employee_employee table missing employee_user_id_id column")
     
     # Check payroll table columns
     cursor.execute("""
