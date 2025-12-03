@@ -71,6 +71,26 @@ def load_minimal_demo_data():
             admin_id = cur.fetchone()[0]
             print(f"  ✓ Admin user exists (ID: {admin_id})")
         
+        # Create admin employee record
+        print("  - Creating admin employee record...")
+        cur.execute("""
+            INSERT INTO employee_employee (employee_user_id_id, employee_first_name, employee_last_name,
+                                           email, phone, badge_id, is_active)
+            VALUES (%s, 'Admin', 'User', 'admin@example.com', '000-000-0000', 'ADMIN001', true)
+            ON CONFLICT (email) DO NOTHING
+            RETURNING id;
+        """, (admin_id,))
+        admin_emp_result = cur.fetchone()
+        if admin_emp_result:
+            admin_emp_id = admin_emp_result[0]
+            print(f"  ✓ Admin employee created (ID: {admin_emp_id})")
+        else:
+            cur.execute("SELECT id FROM employee_employee WHERE email='admin@example.com'")
+            result = cur.fetchone()
+            if result:
+                admin_emp_id = result[0]
+                print(f"  ✓ Admin employee exists (ID: {admin_emp_id})")
+        
         # 2. Create company
         print("\n[2/8] Creating company...")
         cur.execute("""
