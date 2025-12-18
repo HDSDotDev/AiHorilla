@@ -8,6 +8,13 @@ from django.urls import path
 from payroll.views import philippines_views
 
 urlpatterns = [
+    # Unified Philippine Payroll Reference (combines all informational pages)
+    path(
+        'philippines/payroll-reference/',
+        philippines_views.philippines_payroll_reference,
+        name='philippines-payroll-reference'
+    ),
+    # Individual reference pages (kept for backward compatibility)
     path(
         'philippines/sss-contributions/',
         philippines_views.philippines_sss_contributions,

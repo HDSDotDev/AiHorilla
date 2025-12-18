@@ -6,7 +6,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - {{white_label_company_name}} Dashboard</title>
+    <title>Login - Nexus Dashboard</title>
     <link rel="apple-touch-icon" sizes="180x180"
         href="{% if white_label_company.icon %}{{white_label_company.icon.url}} {% else %}{% static 'favicons/apple-touch-icon.png' %}{% endif %}">
     <link rel="icon" type="image/png" sizes="32x32"
@@ -15,10 +15,296 @@
         href="{% if white_label_company.icon %}{{white_label_company.icon.url}} {% else %}{% static 'favicons/favicon-16x16.png' %}{% endif %}">
     <link rel="stylesheet" href="{% static '/build/css/style.min.css' %}" />
     <link rel="manifest" href="{% static 'build/manifest.json' %}" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        #main {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated gradient background */
+        #main::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(99, 102, 241, 0.2) 0%, transparent 50%);
+            animation: gradientMove 20s ease infinite;
+        }
+
+        @keyframes gradientMove {
+            0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+            50% { opacity: 0.8; transform: scale(1.1) rotate(5deg); }
+        }
+
+        /* Floating particles */
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        .particle:nth-child(1) { width: 80px; height: 80px; top: 10%; left: 10%; animation-delay: 0s; }
+        .particle:nth-child(2) { width: 60px; height: 60px; top: 60%; left: 80%; animation-delay: 2s; }
+        .particle:nth-child(3) { width: 100px; height: 100px; top: 80%; left: 20%; animation-delay: 4s; }
+        .particle:nth-child(4) { width: 40px; height: 40px; top: 30%; left: 70%; animation-delay: 6s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
+            50% { transform: translateY(-30px) translateX(30px); opacity: 0.6; }
+        }
+
+        .oh-auth {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .oh-auth-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.3),
+                0 0 100px rgba(59, 130, 246, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+            max-width: 460px;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: cardSlideIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes cardSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Glow effect on card */
+        .oh-auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4, #8b5cf6, #3b82f6);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .oh-onboarding-card__title--h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            animation: titleGlow 3s ease infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.3)); }
+            50% { filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.4)); }
+        }
+
+        .text-muted {
+            color: #64748b !important;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .oh-input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .oh-label {
+            display: block;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .oh-input {
+            width: 100%;
+            padding: 0.875rem 1.125rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #f8fafc;
+        }
+
+        .oh-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .oh-password-input-container {
+            position: relative;
+        }
+
+        .oh-password-input--toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .oh-password-input--toggle:hover {
+            color: #3b82f6;
+        }
+
+        .oh-btn--secondary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .oh-btn--secondary:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .oh-btn--secondary:active {
+            transform: translateY(0);
+        }
+
+        .oh-link--secondary {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .oh-link--secondary:hover {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
+        .auth-logo-container {
+            text-align: center;
+            margin-top: 2rem;
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .auth-logo-container img {
+            max-width: 180px;
+            height: auto;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+        }
+
+        .auth-logo-container p {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            margin-top: 1rem;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .oh-alert-container {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 9999;
+            max-width: 400px;
+        }
+
+        .oh-alert {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            margin-bottom: 1rem;
+            animation: slideInRight 0.4s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
 </head>
 
 <body>
     <div id="main">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        
         <div class="oh-alert-container">
             {% for message in messages %}
             <div class="oh-alert oh-alert--animated {{ message.tags }}">
@@ -26,26 +312,27 @@
             </div>
             {% endfor %}
         </div>
+        
         <main class="oh-auth">
             <div class="oh-auth-card mb-4">
                 <h1 class="oh-onboarding-card__title oh-onboarding-card__title--h2 text-center my-3">
-                    {% trans "Sign In" %}
+                    {% trans "Welcome Back" %}
                 </h1>
                 <p class="text-muted text-center">
-                    {% trans "Please login to access the dashboard." %}
+                    {% trans "Sign in to access your Nexus dashboard" %}
                 </p>
                 <form method="post" class="oh-form-group">
                     {% csrf_token %}
                     <div class="oh-input-group">
                         <label class="oh-label" for="username">{% trans "Username" %}</label>
                         <input type="text" id="username" name="username" class="oh-input w-100"
-                            placeholder="e.g. adam.luis@horilla.com" />
+                            placeholder="Enter your username" />
                     </div>
                     <div class="oh-input-group">
                         <label class="oh-label" for="password">{% trans "Password" %}</label>
                         <div class="oh-password-input-container">
                             <input type="password" id="password" name="password"
-                                class="oh-input oh-input--password w-100" placeholder="Use alphanumeric characters" />
+                                class="oh-input oh-input--password w-100" placeholder="Enter your password" />
                             <button type="button" class="oh-btn oh-btn--transparent oh-password-input--toggle">
                                 <ion-icon class="oh-passowrd-input__show-icon" title="{% trans 'Show Password' %}"
                                     name="eye-outline"></ion-icon>
@@ -58,7 +345,7 @@
                         class="oh-btn oh-onboarding-card__button mt-4 oh-btn--secondary oh-btn--shadow w-100 mb-4"
                         role="button">
                         <ion-icon class="me-2" name="lock-closed-outline"></ion-icon>
-                        {% trans "Secure Sign-in" %}
+                        {% trans "Sign In Securely" %}
                     </button>
                     {% if not initialize_database %}
                         <small class="text-center">
@@ -95,27 +382,24 @@
                         </div>
                     </div>
                 {% endif %}
-            </div>
-            <div style="display: contents;">
-                <img src={% if white_label_company.icon %}
-                        "{{white_label_company.icon.url}}"
-                        alt="{{white_label_company_name}}"
-                        style=" opacity:.90; 200px; height: 140px;"
-                    {% else %}
-                        "{% static 'images/ui/auth-logo.png' %}" alt="Horilla"
+                
+                <div class="auth-logo-container">
+                    <img src={% if white_label_company.icon %}
+                            "{{white_label_company.icon.url}}"
+                            alt="{{white_label_company_name}}"
+                        {% else %}
+                            "{% static 'images/ui/auth-logo.png' %}" alt="Nexus"
+                        {% endif %}
+                    />
+                    {% if white_label_company %}
+                    <p>{{white_label_company}}</p>
                     {% endif %}
-                />
-                {% if white_label_company %}
-                <p style=" font-size: large; color: gray; text-align: center;" class="mt-2">{{white_label_company}}</p>
-                {% endif %}
-
+                </div>
             </div>
         </main>
     </div>
     <script src="{% static '/build/js/web.frontend.min.js' %}"></script>
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    {% comment %} <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script> {% endcomment %}
     <script type="module"  src="{% static 'images/ionicons/ui_icons/ionicons/ionicons.esm.js' %}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
     <script>
@@ -126,6 +410,9 @@
                     text: 'Your login credentials are currently blocked. Please contact HR administrators for assistance.',
                     icon: 'warning',
                     confirmButtonText: 'OK',
+                    customClass: {
+                        popup: 'animated-popup'
+                    }
                 });
             }
         });

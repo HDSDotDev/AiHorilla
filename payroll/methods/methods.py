@@ -307,17 +307,39 @@ def get_daily_salary(wage, wage_date) -> dict:
 def months_between_range(wage, start_date, end_date):
     """
     This method is used to find the months between range
+    
+    For Philippines payroll (when PAYROLL_COUNTRY='philippines'):
+    - Uses standard 30-day month divisor for daily rate calculation
+    - Calculates pay based on actual calendar days worked in each month
+    - This matches standard Philippines payroll practice (e.g., Sprout Payroll)
+    
+    For other countries:
+    - Uses actual working days (excluding weekends/holidays)
     """
+    from django.conf import settings
+    
+    # Validate date range
+    if end_date < start_date:
+        print(f"[ERROR] Invalid date range: end_date ({end_date}) is before start_date ({start_date})")
+        return []
+    
     months_data = []
+    
+    # Check if Philippines payroll calculation method should be used
+    use_philippines_method = getattr(settings, 'PAYROLL_COUNTRY', '').lower() == 'philippines'
+    
+    # Calculate number of months in range
+    num_months = (end_date.year - start_date.year) * 12 + end_date.month - start_date.month + 1
+    
+    # Debug logging for empty ranges
+    if num_months <= 0:
+        print(f"[WARNING] months_between_range calculated {num_months} months")
+        print(f"  Start: {start_date}, End: {end_date}")
+        print(f"  Wage: {wage}")
 
     for current_date in (
         start_date + relativedelta(months=i)
-        for i in range(
-            (end_date.year - start_date.year) * 12
-            + end_date.month
-            - start_date.month
-            + 1
-        )
+        for i in range(num_months)
     ):
         month = current_date.month
         year = current_date.year
@@ -329,33 +351,63 @@ def months_between_range(wage, start_date, end_date):
         # Calculate the end date for the current month
         current_end_date = current_date + relativedelta(day=days_in_month)
         current_end_date = min(current_end_date, end_date)
-        working_days_on_month = get_working_days(
-            current_date.replace(day=1), current_date.replace(day=days_in_month)
-        )["total_working_days"]
+        
+        # Determine which calculation method to use
+        if use_philippines_method:
+            # Philippines method: Always use 30-day divisor for daily rate
+            # Calculate calendar days in period
+            month_start_date = (
+                date(year=year, month=month, day=1)
+                if start_date < date(year=year, month=month, day=1)
+                else start_date
+            )
+            
+            # Count actual calendar days in period
+            days_in_period = (current_end_date - month_start_date).days + 1
+            
+            # Use standard 30-day month for daily rate calculation (Philippines standard)
+            days_for_divisor = 30
+            per_day_amount = wage / days_for_divisor
+            
+            month_info = {
+                "month": month,
+                "year": year,
+                "days": days_in_month,
+                "start_date": month_start_date.strftime("%Y-%m-%d"),
+                "end_date": current_end_date.strftime("%Y-%m-%d"),
+                # Philippines method: calendar days worked with 30-day divisor
+                "working_days_on_period": days_in_period,
+                "working_days_on_month": days_for_divisor,
+                "per_day_amount": per_day_amount,
+            }
+        else:
+            # Default method: Use actual working days (excluding weekends/holidays)
+            working_days_on_month = get_working_days(
+                current_date.replace(day=1), current_date.replace(day=days_in_month)
+            )["total_working_days"]
 
-        month_start_date = (
-            date(year=year, month=month, day=1)
-            if start_date < date(year=year, month=month, day=1)
-            else start_date
-        )
-        total_working_days_on_period = get_working_days(
-            month_start_date, current_end_date
-        )["total_working_days"]
+            month_start_date = (
+                date(year=year, month=month, day=1)
+                if start_date < date(year=year, month=month, day=1)
+                else start_date
+            )
+            total_working_days_on_period = get_working_days(
+                month_start_date, current_end_date
+            )["total_working_days"]
 
-        month_info = {
-            "month": month,
-            "year": year,
-            "days": days_in_month,
-            "start_date": month_start_date.strftime("%Y-%m-%d"),
-            "end_date": current_end_date.strftime("%Y-%m-%d"),
-            # month period
-            "working_days_on_period": total_working_days_on_period,
-            "working_days_on_month": working_days_on_month,
-            "per_day_amount": (
-                wage / working_days_on_month if working_days_on_month else 0.0
-            ),
-            # if working_days_on_month != 0 else 0 #769,
-        }
+            month_info = {
+                "month": month,
+                "year": year,
+                "days": days_in_month,
+                "start_date": month_start_date.strftime("%Y-%m-%d"),
+                "end_date": current_end_date.strftime("%Y-%m-%d"),
+                # Default method: working days (excluding weekends)
+                "working_days_on_period": total_working_days_on_period,
+                "working_days_on_month": working_days_on_month,
+                "per_day_amount": (
+                    wage / working_days_on_month if working_days_on_month else 0.0
+                ),
+            }
 
         months_data.append(month_info)
         # Set the start date for the next month as the first day of the next month
@@ -421,8 +473,22 @@ def monthly_computation(employee, wage, start_date, end_date, *args, **kwargs):
         start_date (obj): start of the pay period
         end_date (obj): end date of the period
     """
+    print(f"[DEBUG monthly_computation] Employee: {employee.id}, Start: {start_date}, End: {end_date}")
     basic_pay = 0
     month_data = months_between_range(wage, start_date, end_date)
+    print(f"[DEBUG monthly_computation] month_data length: {len(month_data)}")
+    
+    # Defensive check: if month_data is empty, return error details
+    if not month_data:
+        print(f"[ERROR] months_between_range returned empty list!")
+        print(f"  Employee: {employee.get_full_name()} (ID: {employee.id})")
+        print(f"  Wage: {wage}")
+        print(f"  Start Date: {start_date} (type: {type(start_date)})")
+        print(f"  End Date: {end_date} (type: {type(end_date)})")
+        raise ValueError(
+            f"Cannot compute monthly salary: no working days found between {start_date} and {end_date}. "
+            f"This may indicate invalid dates or that the date range is entirely holidays/weekends."
+        )
 
     leave_data = get_leaves(employee, start_date, end_date)
 

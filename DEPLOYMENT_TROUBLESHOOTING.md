@@ -231,7 +231,7 @@ python manage.py showmigrations
    - is_superuser: `true`
 
 2. **Company** (`base_company` table)
-   - Name: "BizBloqs Philippines"
+   - Name: "Nexus Philippines"
    - Address: Manila, Philippines
 
 3. **Admin Employee** (`employee_employee` table) ⚠️ CRITICAL

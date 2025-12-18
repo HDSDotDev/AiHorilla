@@ -291,6 +291,124 @@ class PhilippinesPayrollCalculator:
             'num_dependents': max_dependents
         }
 
+    def get_cutoff_contributions(
+        self,
+        monthly_sss: Decimal,
+        monthly_philhealth: Decimal,
+        monthly_pagibig: Decimal,
+        philhealth_ytd_this_month: Decimal = Decimal('0.00')
+    ) -> Dict[str, Decimal]:
+        """
+        Calculate contributions for a semi-monthly cutoff (Sprout allocation method)
+        
+        SSS & Pag-IBIG: Split evenly per cutoff (÷ 2)
+        PhilHealth: Month-to-date remainder allocation
+        
+        Args:
+            monthly_sss: Monthly SSS employee contribution
+            monthly_philhealth: Monthly PhilHealth employee contribution
+            monthly_pagibig: Monthly Pag-IBIG employee contribution
+            philhealth_ytd_this_month: PhilHealth already deducted this month
+        
+        Returns:
+            Dict with cutoff contribution amounts
+        """
+        # SSS: Always split evenly
+        cutoff_sss = (monthly_sss / 2).quantize(Decimal('0.01'))
+        
+        # Pag-IBIG: Always split evenly
+        cutoff_pagibig = (monthly_pagibig / 2).quantize(Decimal('0.01'))
+        
+        # PhilHealth: Remainder-based allocation (STATEFUL)
+        # Deduct only what remains after previous cutoffs in this month
+        philhealth_remaining = monthly_philhealth - philhealth_ytd_this_month
+        planned_cutoff = (monthly_philhealth / 2).quantize(Decimal('0.01'))
+        cutoff_philhealth = min(philhealth_remaining, planned_cutoff).quantize(Decimal('0.01'))
+        
+        return {
+            'sss': cutoff_sss,
+            'philhealth': cutoff_philhealth,
+            'pagibig': cutoff_pagibig,
+            'total': (cutoff_sss + cutoff_philhealth + cutoff_pagibig).quantize(Decimal('0.01')),
+            'philhealth_remaining': philhealth_remaining.quantize(Decimal('0.01'))
+        }
+
+    def calculate_semimonthly_withholding_tax(
+        self,
+        total_basic_pay: Decimal,
+        sss: Decimal = Decimal('0.00'),
+        philhealth: Decimal = Decimal('0.00'),
+        pagibig: Decimal = Decimal('0.00'),
+        sss_mpf: Decimal = Decimal('0.00')
+    ) -> Dict[str, Decimal]:
+        """
+        Calculate withholding tax using SEMI-MONTHLY brackets (Sprout method)
+        
+        This matches the Excel formula from the accountant:
+        1. Start with Total Basic Pay
+        2. Deduct SSS, SSS MPF, Pag-IBIG, PhilHealth = Taxable Income
+        3. Apply semi-monthly tax brackets directly (NO annualization)
+        
+        Args:
+            total_basic_pay: Total basic pay for the semi-monthly period
+            sss: SSS employee contribution
+            philhealth: PhilHealth employee share
+            pagibig: Pag-IBIG employee contribution
+            sss_mpf: SSS MPF contribution
+        
+        Returns:
+            Dict with tax details
+        """
+        # Calculate Taxable Income = Total Basic − (SSS + MPF + Pag-IBIG + PhilHealth)
+        taxable_income = total_basic_pay - sss - philhealth - pagibig - sss_mpf
+        
+        # Ensure non-negative
+        taxable_income = max(Decimal('0.00'), taxable_income)
+        
+        # Apply semi-monthly tax bracket using IFS logic from Excel
+        # =IFS(
+        #  AE5<=10417, 0,
+        #  AE5<=16666, (AE5-10417)*15%,
+        #  AE5<=33332, (AE5-16667)*20% + 937.5,
+        #  AE5<=83332, (AE5-33333)*25% + 4270.7,
+        #  AE5<=333332, (AE5-83333)*30% + 16770.7,
+        #  AE5>333333, (AE5-333333)*35% + 91770.7
+        # )
+        
+        tax = Decimal('0.00')
+        bracket_name = ""
+        
+        if taxable_income <= Decimal('10417'):
+            tax = Decimal('0.00')
+            bracket_name = "≤ ₱10,417 (0%)"
+        elif taxable_income <= Decimal('16666'):
+            tax = (taxable_income - Decimal('10417')) * Decimal('0.15')
+            bracket_name = "₱10,417 - ₱16,666 (15%)"
+        elif taxable_income <= Decimal('33332'):
+            tax = Decimal('937.50') + ((taxable_income - Decimal('16667')) * Decimal('0.20'))
+            bracket_name = "₱16,667 - ₱33,332 (20%)"
+        elif taxable_income <= Decimal('83332'):
+            tax = Decimal('4270.70') + ((taxable_income - Decimal('33333')) * Decimal('0.25'))
+            bracket_name = "₱33,333 - ₱83,332 (25%)"
+        elif taxable_income <= Decimal('333332'):
+            tax = Decimal('16770.70') + ((taxable_income - Decimal('83333')) * Decimal('0.30'))
+            bracket_name = "₱83,333 - ₱333,332 (30%)"
+        else:
+            tax = Decimal('91770.70') + ((taxable_income - Decimal('333333')) * Decimal('0.35'))
+            bracket_name = "Above ₱333,333 (35%)"
+        
+        return {
+            'withholding_tax': tax.quantize(Decimal('0.01')),
+            'taxable_income': taxable_income.quantize(Decimal('0.01')),
+            'total_basic_pay': total_basic_pay.quantize(Decimal('0.01')),
+            'total_deductions': (sss + philhealth + pagibig + sss_mpf).quantize(Decimal('0.01')),
+            'bracket': bracket_name,
+            'sss': sss,
+            'philhealth': philhealth,
+            'pagibig': pagibig,
+            'sss_mpf': sss_mpf
+        }
+
     def calculate_thirteenth_month_pay(
         self,
         total_basic_salary_ytd: Decimal,
@@ -748,7 +866,9 @@ def get_philippines_payroll_summary(
     }
 
 
-def philippines_payroll_calculation(employee, start_date, end_date):
+def philippines_payroll_calculation(employee, start_date, end_date,
+                                   apply_sss=True, apply_philhealth=True, 
+                                   apply_pagibig=True, apply_tax=True, apply_allowances=True):
     """
     MAIN PHILIPPINES PAYROLL CALCULATION - Integrated with Horilla
     
@@ -762,6 +882,16 @@ def philippines_payroll_calculation(employee, start_date, end_date):
     - Overtime pay (night diff, rest day, holidays)
     - COLA (Cost of Living Allowance)
     - Regional minimum wage compliance
+    
+    Args:
+        employee: Employee object
+        start_date: Payroll period start date
+        end_date: Payroll period end date
+        apply_sss: If False, SSS contribution will be deferred (₱0.00)
+        apply_philhealth: If False, PhilHealth contribution will be deferred (₱0.00)
+        apply_pagibig: If False, Pag-IBIG contribution will be deferred (₱0.00)
+        apply_tax: If False, withholding tax will be deferred (₱0.00)
+        apply_allowances: If False, allowances will not be included in gross pay (₱0.00)
     """
     import json
     from payroll.models.models import Contract
@@ -793,109 +923,233 @@ def philippines_payroll_calculation(employee, start_date, end_date):
         basic_pay = basic_pay - loss_of_pay_amount
     
     # Calculate allowances (keeps existing allowance system)
-    kwargs = {
-        "employee": employee,
-        "start_date": start_date,
-        "end_date": end_date,
-        "basic_pay": basic_pay,
-        "day_dict": working_days_details,
-    }
-    allowances = calculate_allowance(**kwargs)
-    total_allowance = sum(allowance["amount"] for allowance in allowances["allowances"])
+    if apply_allowances:
+        kwargs = {
+            "employee": employee,
+            "start_date": start_date,
+            "end_date": end_date,
+            "basic_pay": basic_pay,
+            "day_dict": working_days_details,
+        }
+        allowances = calculate_allowance(**kwargs)
+        total_allowance = sum(allowance["amount"] for allowance in allowances["allowances"])
+    else:
+        # Defer allowances to next pay period
+        allowances = {"allowances": []}
+        total_allowance = 0.0
     
     # PHILIPPINES-SPECIFIC CALCULATIONS
-    # Don't need to instantiate the calculator - use the methods directly
-    monthly_basic = float(basic_pay)
+    # Get MONTHLY basic salary from contract (not period amount)
+    # basic_pay is the period amount, but contributions are based on monthly salary
+    monthly_basic = float(contract_wage)  # This is the actual monthly salary
+    
+    # SPROUT CUTOFF LOGIC: Determine which cutoff this is
+    # Set USE_SPROUT_CUTOFF_LOGIC = False to disable automatic cutoff-based allocation
+    # Set USE_SPROUT_CUTOFF_LOGIC = True to match Sprout behavior:
+    #   - Cutoff 1 (starts ≤13th): NO contributions (₱0)
+    #   - Cutoff 2 (starts ≥14th): FULL monthly contributions
+    USE_SPROUT_CUTOFF_LOGIC = False  # Change to True to enable Sprout cutoff behavior
+    is_cutoff_2 = start_date.day >= 14
     
     # 1. SSS CONTRIBUTION
-    sss_contribution = PhilippinesSSSContribution.objects.filter(
-        min_salary__lte=monthly_basic,
-        max_salary__gte=monthly_basic
-    ).first()
-    
-    if sss_contribution:
-        sss_deduction = {
-            "title": "SSS Contribution",
-            "amount": float(sss_contribution.employee_contribution),
-            "description": f"SSS bracket: ₱{sss_contribution.min_salary:.2f} - ₱{sss_contribution.max_salary:.2f}"
-        }
+    if apply_sss:
+        sss_contribution = PhilippinesSSSContribution.objects.filter(
+            min_salary__lte=monthly_basic,
+            max_salary__gte=monthly_basic
+        ).first()
+        
+        if sss_contribution:
+            if USE_SPROUT_CUTOFF_LOGIC:
+                # Apply Sprout cutoff logic
+                sss_amount = 0.0 if not is_cutoff_2 else float(sss_contribution.employee_contribution)
+                cutoff_label = "Cutoff 2" if is_cutoff_2 else "Cutoff 1 (deferred)"
+            else:
+                # Use full monthly amount (normal behavior)
+                sss_amount = float(sss_contribution.employee_contribution)
+                cutoff_label = f"₱{sss_contribution.min_salary:.2f} - ₱{sss_contribution.max_salary:.2f}"
+            
+            sss_deduction = {
+                "title": "SSS Contribution",
+                "amount": sss_amount,
+                "description": f"SSS {cutoff_label}"
+            }
+        else:
+            sss_deduction = {
+                "title": "SSS Contribution",
+                "amount": 0.0,
+                "description": "No SSS bracket found"
+            }
     else:
         sss_deduction = {
             "title": "SSS Contribution",
             "amount": 0.0,
-            "description": "No SSS bracket found"
+            "description": "Deferred to next pay period"
         }
     
     # 2. PHILHEALTH CONTRIBUTION
-    philhealth_contribution = PhilippinesPhilHealthContribution.objects.filter(
-        min_salary__lte=monthly_basic
-    ).order_by('-min_salary').first()
-    
-    if philhealth_contribution:
-        philhealth_deduction = {
-            "title": "PhilHealth Contribution",
-            "amount": float(philhealth_contribution.employee_share),
-            "description": f"PhilHealth premium: {philhealth_contribution.premium_rate}%"
-        }
+    if apply_philhealth:
+        philhealth_contribution = PhilippinesPhilHealthContribution.objects.filter(
+            min_salary__lte=monthly_basic
+        ).order_by('-min_salary').first()
+        
+        if philhealth_contribution:
+            # Check if this is the dynamic calculation bracket (min 10,001 - max 100,000)
+            if philhealth_contribution.employee_share == 0 and philhealth_contribution.monthly_premium == 0:
+                # Calculate 5% of basic salary (2.5% employee + 2.5% employer)
+                monthly_premium = monthly_basic * (float(philhealth_contribution.premium_rate) / 100)
+                employee_share = monthly_premium / 2
+                
+                # Apply maximum ceiling of 5,000 per employee
+                if employee_share > 5000:
+                    employee_share = 5000
+                
+                if USE_SPROUT_CUTOFF_LOGIC:
+                    # Apply Sprout cutoff logic
+                    philhealth_amount = 0.0 if not is_cutoff_2 else float(employee_share)
+                    cutoff_label = "Cutoff 2" if is_cutoff_2 else "Cutoff 1 (deferred)"
+                else:
+                    # Use full monthly amount
+                    philhealth_amount = float(employee_share)
+                    cutoff_label = f"{philhealth_contribution.premium_rate}% of basic"
+                
+                philhealth_deduction = {
+                    "title": "PhilHealth Contribution",
+                    "amount": philhealth_amount,
+                    "description": f"PhilHealth {cutoff_label}"
+                }
+            else:
+                # Fixed bracket amounts (minimum or maximum)
+                if USE_SPROUT_CUTOFF_LOGIC:
+                    philhealth_amount = 0.0 if not is_cutoff_2 else float(philhealth_contribution.employee_share)
+                    cutoff_label = "Cutoff 2" if is_cutoff_2 else "Cutoff 1 (deferred)"
+                else:
+                    philhealth_amount = float(philhealth_contribution.employee_share)
+                    cutoff_label = f"{philhealth_contribution.premium_rate}%"
+                
+                philhealth_deduction = {
+                    "title": "PhilHealth Contribution",
+                    "amount": philhealth_amount,
+                    "description": f"PhilHealth {cutoff_label}"
+                }
+        else:
+            philhealth_deduction = {
+                "title": "PhilHealth Contribution",
+                "amount": 0.0,
+                "description": "No PhilHealth rate found"
+            }
     else:
         philhealth_deduction = {
             "title": "PhilHealth Contribution",
             "amount": 0.0,
-            "description": "No PhilHealth rate found"
+            "description": "Deferred to next pay period"
         }
     
     # 3. PAG-IBIG CONTRIBUTION
-    pagibig_contribution = PhilippinesPagIbigContribution.objects.filter(
-        min_salary__lte=monthly_basic
-    ).order_by('-min_salary').first()
-    
-    if pagibig_contribution:
-        pagibig_deduction = {
-            "title": "Pag-IBIG Contribution",
-            "amount": float(pagibig_contribution.employee_contribution),
-            "description": f"Pag-IBIG rate: {pagibig_contribution.employee_rate}%"
-        }
+    if apply_pagibig:
+        pagibig_contribution = PhilippinesPagIbigContribution.objects.filter(
+            min_salary__lte=monthly_basic
+        ).order_by('-min_salary').first()
+        
+        if pagibig_contribution:
+            # Check if this is a dynamic calculation bracket (employee_contribution = 0)
+            if pagibig_contribution.employee_contribution == 0:
+                # Calculate based on percentage of salary
+                employee_contribution = monthly_basic * (float(pagibig_contribution.employee_rate) / 100)
+                
+                # Apply maximum ceiling of ₱100 per employee
+                if employee_contribution > 100:
+                    employee_contribution = 100.0
+                
+                if USE_SPROUT_CUTOFF_LOGIC:
+                    pagibig_amount = 0.0 if not is_cutoff_2 else float(employee_contribution)
+                    cutoff_label = "Cutoff 2" if is_cutoff_2 else "Cutoff 1 (deferred)"
+                else:
+                    pagibig_amount = float(employee_contribution)
+                    cutoff_label = f"{pagibig_contribution.employee_rate}% of salary"
+            else:
+                # Fixed bracket amount
+                if USE_SPROUT_CUTOFF_LOGIC:
+                    pagibig_amount = 0.0 if not is_cutoff_2 else float(pagibig_contribution.employee_contribution)
+                    cutoff_label = "Cutoff 2" if is_cutoff_2 else "Cutoff 1 (deferred)"
+                else:
+                    pagibig_amount = float(pagibig_contribution.employee_contribution)
+                    cutoff_label = f"{pagibig_contribution.employee_rate}% (max ₱100)"
+            
+            pagibig_deduction = {
+                "title": "Pag-IBIG Contribution",
+                "amount": pagibig_amount,
+                "description": f"Pag-IBIG {cutoff_label}"
+            }
+        else:
+            pagibig_deduction = {
+                "title": "Pag-IBIG Contribution",
+                "amount": 0.0,
+                "description": "No Pag-IBIG rate found"
+            }
     else:
         pagibig_deduction = {
             "title": "Pag-IBIG Contribution",
             "amount": 0.0,
-            "description": "No Pag-IBIG rate found"
+            "description": "Deferred to next pay period"
         }
     
     # Calculate GROSS PAY (Basic + Allowances)
     gross_pay = basic_pay + total_allowance
     
-    # 4. BIR WITHHOLDING TAX (TRAIN Law)
-    annual_salary = monthly_basic * 12
-    total_government_contributions = (
-        sss_deduction['amount'] + 
-        philhealth_deduction['amount'] + 
-        pagibig_deduction['amount']
-    ) * 12
-    
-    taxable_annual = annual_salary - total_government_contributions
-    
-    # Find tax bracket
-    tax_bracket = PhilippinesTaxBracket.objects.filter(
-        min_annual_income__lte=taxable_annual
-    ).order_by('-min_annual_income').first()
-    
-    if tax_bracket:
-        excess = float(taxable_annual) - float(tax_bracket.min_annual_income)
-        annual_tax = float(tax_bracket.base_tax) + (excess * float(tax_bracket.tax_rate) / 100)
-        monthly_tax = annual_tax / 12
+    # 4. BIR WITHHOLDING TAX (TRAIN Law) - SEMI-MONTHLY METHOD
+    if apply_tax:
+        # NEW ACCOUNTANT-APPROVED METHOD (Sprout-compatible)
+        # Uses SEMI-MONTHLY tax brackets directly, NOT annualized
+        # Formula: Tax = f(Total Basic − SSS − PhilHealth − Pag-IBIG − MPF)
+        
+        # For semi-monthly: Use basic_pay (already prorated) + allowances (already prorated)
+        # basic_pay and total_allowance are already calculated for the period
+        total_basic_pay_period = basic_pay  # This is already the period amount, not monthly
+        
+        # Get contributions for this period (these will be deducted from taxable income)
+        sss_amount = Decimal(str(sss_deduction['amount'])) if apply_sss else Decimal('0.00')
+        philhealth_amount = Decimal(str(philhealth_deduction['amount'])) if apply_philhealth else Decimal('0.00')
+        pagibig_amount = Decimal(str(pagibig_deduction['amount'])) if apply_pagibig else Decimal('0.00')
+        
+        # Calculate tax using semi-monthly brackets
+        # This matches the Excel formula exactly
+        from decimal import Decimal as D
+        
+        calculator = PhilippinesPayrollCalculator(
+            employee=employee,
+            basic_salary=D(str(monthly_basic)),
+            period_start=start_date,
+            period_end=end_date,
+            pay_period='semi_monthly'
+        )
+        
+        tax_result = calculator.calculate_semimonthly_withholding_tax(
+            total_basic_pay=D(str(total_basic_pay_period)),
+            sss=sss_amount,
+            philhealth=philhealth_amount,
+            pagibig=pagibig_amount,
+            sss_mpf=D('0.00')  # MPF typically included in SSS amount
+        )
+        
+        period_tax = float(tax_result['withholding_tax'])
+        
+        # Build description showing semi-monthly calculation
+        desc_parts = [f"Semi-monthly {tax_result['bracket']}"]
+        desc_parts.append(f"Taxable: ₱{tax_result['taxable_income']:,.2f}")
+        total_days_in_period = (end_date - start_date).days + 1
+        if total_days_in_period != 15:
+            desc_parts.append(f"{total_days_in_period} days")
         
         tax_deduction = {
             "title": "Withholding Tax (BIR)",
-            "amount": float(monthly_tax),
-            "description": f"BIR bracket: {tax_bracket.tax_rate}% (₱{tax_bracket.min_annual_income:,.2f}+)"
+            "amount": float(period_tax),
+            "description": " | ".join(desc_parts)
         }
     else:
-        monthly_tax = 0.0
         tax_deduction = {
             "title": "Withholding Tax (BIR)",
             "amount": 0.0,
-            "description": "No tax bracket found"
+            "description": "Deferred to next pay period"
         }
     
     # TOTAL DEDUCTIONS

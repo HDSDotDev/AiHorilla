@@ -35,16 +35,14 @@ os.environ['DJANGO_DISABLE_AUDITLOG'] = '1'
 
 django.setup()
 
-# After django.setup(), disable auditlog signal receivers
+# After django.setup(), completely disable auditlog by monkey-patching the receiver
 try:
-    import auditlog
-    from django.db.models.signals import post_save, post_delete
-    from auditlog.models import LogEntry
-    
-    # Disconnect auditlog receivers to prevent queries on missing tables
-    post_save.disconnect(dispatch_uid='auditlog_post_save')
-    post_delete.disconnect(dispatch_uid='auditlog_post_delete')
-    print("✓ Auditlog signals disabled for demo data loading")
+    import auditlog.receivers
+    # Replace the log creation functions with no-ops
+    auditlog.receivers.log_create = lambda *args, **kwargs: None
+    auditlog.receivers.log_update = lambda *args, **kwargs: None
+    auditlog.receivers.log_delete = lambda *args, **kwargs: None
+    print("[OK] Auditlog disabled for demo data loading")
 except Exception as e:
     print(f"Note: Could not disable auditlog: {e}")
 
@@ -193,16 +191,87 @@ class PhilippinesComprehensiveDemo:
         self.leave_types = {}
         self.asset_categories = {}
         self.ticket_types = {}
+        self.fake_request = None
+        self._setup_fake_request()
         
+    def _setup_fake_request(self):
+        """Setup fake request object for models that require it"""
+        import horilla.horilla_middlewares as horilla_middlewares
+        from django.contrib.auth.models import User
+        
+        # Get or create admin user for request.user
+        admin_user, _ = User.objects.get_or_create(
+            username='admin',
+            defaults={
+                'email': 'admin@bizbloqs.ph',
+                'is_staff': True,
+                'is_superuser': True,
+                'first_name': 'Admin',
+                'last_name': 'User'
+            }
+        )
+        if not admin_user.has_usable_password():
+            admin_user.set_password('admin')
+            admin_user.save()
+        
+        # Create Employee record for admin user (required to hide demo data button after load)
+        from employee.models import Employee
+        admin_employee, _ = Employee.objects.get_or_create(
+            employee_user_id=admin_user,
+            defaults={
+                'employee_first_name': 'Admin',
+                'employee_last_name': 'User',
+                'email': 'admin@bizbloqs.ph',
+                'badge_id': 'ADMIN-001',
+                'is_active': True,
+            }
+        )
+        
+        # Create fake request object with minimal required attributes
+        class FakeRequest:
+            def __init__(self, user):
+                self.user = user
+                self.session = {}
+                self.META = {}
+                self.GET = {}
+                self.POST = {}
+        
+        # Store it in thread locals where Horilla expects it
+        horilla_middlewares._thread_locals.request = FakeRequest(admin_user)
+    
     def log(self, message, level='info'):
-        """Print formatted log message"""
-        symbols = {'info': '✓', 'warn': '⚠', 'error': '✗', 'step': '▸'}
-        symbol = symbols.get(level, '•')
+        """Print formatted log message (Windows-compatible ASCII)"""
+        symbols = {'info': '[OK]', 'warn': '[WARN]', 'error': '[ERROR]', 'step': '>>'}
+        symbol = symbols.get(level, '-')
         print(f"   {symbol} {message}")
     
     def header(self, title):
         """Print section header"""
         print(f"\n[{title.upper()}]")
+    
+    def setup_fake_request(self):
+        """Setup a fake request object for models that require it"""
+        import horilla.horilla_middlewares as horilla_middlewares
+        from types import SimpleNamespace
+        from django.http import QueryDict
+        
+        # Create a fake user that passes all checks
+        fake_user = SimpleNamespace()
+        fake_user.is_authenticated = False
+        fake_user.is_anonymous = True
+        fake_user.username = 'system'
+        fake_user.pk = None
+        
+        # Create a fake request with all required attributes
+        self.fake_request = SimpleNamespace()
+        self.fake_request.session = {}
+        self.fake_request.user = fake_user
+        self.fake_request.POST = QueryDict('', mutable=True)  # Empty POST data
+        self.fake_request.GET = QueryDict('', mutable=True)   # Empty GET data
+        self.fake_request.method = 'GET'
+        
+        # Set it in thread locals
+        horilla_middlewares._thread_locals.request = self.fake_request
     
     def create_company_and_structure(self):
         """Create company, departments, and positions"""
@@ -231,10 +300,15 @@ class PhilippinesComprehensiveDemo:
             ]
             
             for dept_name in dept_names:
-                dept, _ = Department.objects.get_or_create(
-                    department=dept_name,
-                    defaults={'company_id': self.company}
-                )
+                # Check if exists first to avoid clean() method kwargs bug
+                dept = Department.objects.filter(department=dept_name).first()
+                if not dept:
+                    dept = Department(department=dept_name)
+                    dept.full_clean()
+                    dept.save()
+                # Add company if not already linked
+                if not dept.company_id.filter(id=self.company.id).exists():
+                    dept.company_id.add(self.company)
                 self.departments.append(dept)
             
             self.log(f"Created {len(self.departments)} departments")
@@ -270,27 +344,73 @@ class PhilippinesComprehensiveDemo:
             self.log(f"Created {len(self.positions)} job positions")
             
             # Work types
-            work_type, _ = WorkType.objects.get_or_create(
-                work_type='Full-time',
-                defaults={'company_id': self.company}
-            )
+            work_type = WorkType.objects.filter(work_type='Full-time').first()
+            if not work_type:
+                work_type = WorkType(work_type='Full-time')
+                work_type.save()
+                work_type.company_id.add(self.company)
+            elif not work_type.company_id.filter(id=self.company.id).exists():
+                work_type.company_id.add(self.company)
             self.work_types.append(work_type)
             
             # Employee types
-            emp_type, _ = EmployeeType.objects.get_or_create(
-                employee_type='Permanent',
-                defaults={'company_id': self.company}
-            )
+            emp_type = EmployeeType.objects.filter(employee_type='Permanent').first()
+            if not emp_type:
+                emp_type = EmployeeType(employee_type='Permanent')
+                emp_type.save()
+                emp_type.company_id.add(self.company)
+            elif not emp_type.company_id.filter(id=self.company.id).exists():
+                emp_type.company_id.add(self.company)
             self.employee_types.append(emp_type)
             
+            # Create shift days (Monday-Friday)
+            from base.models import EmployeeShiftDay
+            for day_name in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']:
+                day, _ = EmployeeShiftDay.objects.get_or_create(day=day_name)
+                day.company_id.add(self.company)
+            
             # Shifts
-            day_shift, _ = EmployeeShift.objects.get_or_create(
-                employee_shift='Day Shift (9AM-6PM)',
-                defaults={}
-            )
+            day_shift = EmployeeShift.objects.filter(employee_shift='Day Shift (9AM-6PM)').first()
+            if not day_shift:
+                day_shift = EmployeeShift(employee_shift='Day Shift (9AM-6PM)')
+                day_shift.save()
             self.shifts['day'] = day_shift
             
             self.log("Created work types, employee types, and shifts")
+            
+            # Update admin employee with work information
+            from django.contrib.auth.models import User
+            from employee.models import Employee, EmployeeWorkInformation
+            try:
+                admin_user = User.objects.get(username='admin')
+                admin_employee = Employee.objects.get(employee_user_id=admin_user)
+                
+                # Get CEO position or create it
+                ceo_position = self.positions.get('Chief Executive Officer')
+                if not ceo_position:
+                    ceo_dept = next((d for d in self.departments if d.department == 'Operations'), self.departments[0])
+                    ceo_position, _ = JobPosition.objects.get_or_create(
+                        job_position='Chief Executive Officer',
+                        defaults={'department_id': ceo_dept}
+                    )
+                
+                # Create/update work info for admin
+                admin_work_info, _ = EmployeeWorkInformation.objects.get_or_create(
+                    employee_id=admin_employee,
+                    defaults={
+                        'company_id': self.company,
+                        'job_position_id': ceo_position,
+                        'department_id': ceo_position.department_id,
+                        'work_type_id': self.work_types[0] if self.work_types else None,
+                        'employee_type_id': self.employee_types[0] if self.employee_types else None,
+                        'shift_id': day_shift,
+                        'email': 'admin@bizbloqs.ph',
+                        'date_joining': date(2024, 1, 1),
+                    }
+                )
+                self.log("Admin employee configured with work information")
+            except (User.DoesNotExist, Employee.DoesNotExist):
+                self.log("Admin employee setup skipped (not found)", level='warn')
     
     def create_philippines_regions(self):
         """Create PH regions"""
@@ -301,7 +421,10 @@ class PhilippinesComprehensiveDemo:
                 region_code=code,
                 defaults={
                     'region_name': name,
-                    'minimum_wage': Decimal(str(wage))
+                    'daily_minimum_wage': Decimal(str(wage)),
+                    'monthly_minimum_wage': Decimal(str(wage)) * 26,  # 26 working days
+                    'effective_date': date(2024, 1, 1),  # Start of 2024
+                    'company_id': self.company
                 }
             )
             self.regions[code] = region
@@ -400,8 +523,8 @@ class PhilippinesComprehensiveDemo:
                 if not created:
                     continue
                 
-                # Work information
-                work_info, _ = EmployeeWorkInformation.objects.get_or_create(
+                # Work information - use update_or_create to ensure all fields are set
+                work_info, _ = EmployeeWorkInformation.objects.update_or_create(
                     employee_id=employee,
                     defaults={
                         'company_id': self.company,
@@ -418,17 +541,28 @@ class PhilippinesComprehensiveDemo:
                     }
                 )
                 
-                # Contract
-                contract, _ = Contract.objects.get_or_create(
-                    employee_id=employee,
-                    defaults={
-                        'contract_name': f"{first_name} {last_name} - Employment Contract",
-                        'contract_start_date': hire_date,
-                        'contract_end_date': hire_date + timedelta(days=730),
-                        'wage': Decimal(str(monthly_salary)),
-                        'wage_type': 'monthly',
-                    }
-                )
+                # Contract - create with full details
+                contract = Contract.objects.filter(employee_id=employee).first()
+                if not contract:
+                    try:
+                        contract = Contract(
+                            employee_id=employee,
+                            contract_name=f"{first_name} {last_name} - Employment Contract",
+                            contract_start_date=hire_date,
+                            contract_end_date=hire_date + timedelta(days=730),
+                            wage=float(monthly_salary),  # FloatField expects float, not Decimal
+                            wage_type='monthly',
+                            pay_frequency='semi_monthly',
+                            contract_status='active',  # Set to active to make it visible
+                            department=position.department_id,
+                            job_position=position,
+                            shift=self.shifts.get('day'),
+                            work_type=self.work_types[0] if self.work_types else None,
+                        )
+                        contract.save()
+                    except Exception as e:
+                        # If save fails, just print warning and continue
+                        print(f"[WARN] Contract save issue for {username}: {str(e)[:50]}")
                 
                 # Bank details
                 EmployeeBankDetails.objects.get_or_create(
@@ -445,7 +579,7 @@ class PhilippinesComprehensiveDemo:
             if (i + 1) % 10 == 0:
                 self.log(f"Created {i+1}/{self.num_employees} employees...")
         
-        self.log(f"Successfully created {len(self.employees)} employees with salaries ranging from ₱25k to ₱250k")
+        self.log(f"Successfully created {len(self.employees)} employees with salaries ranging from PHP 25k to PHP 250k")
     
     def create_attendance_data(self):
         """Create attendance for September and October 2025"""
@@ -485,17 +619,20 @@ class PhilippinesComprehensiveDemo:
                         
                         # Calculate hours
                         worked_hours = (check_out - check_in).total_seconds() / 3600
-                        at_work = min(worked_hours, 8.0)  # Standard 8 hours
+                        at_work_hours = min(worked_hours, 8.0)  # Standard 8 hours
                         overtime = max(0, worked_hours - 8.0)
                         
                         Attendance.objects.get_or_create(
                             employee_id=employee,
                             attendance_date=current_date,
                             defaults={
-                                'attendance_clock_in': check_in,
-                                'attendance_clock_out': check_out,
+                                'shift_id': shift,
+                                'attendance_clock_in_date': current_date,
+                                'attendance_clock_in': check_in.time(),
+                                'attendance_clock_out_date': current_date,
+                                'attendance_clock_out': check_out.time(),
                                 'attendance_worked_hour': f"{int(worked_hours):02d}:{int((worked_hours % 1) * 60):02d}",
-                                'at_work': at_work,
+                                'at_work_second': int(at_work_hours * 3600),
                                 'overtime_second': int(overtime * 3600),
                                 'attendance_validated': True,
                                 'is_validate_request': False,
@@ -519,17 +656,20 @@ class PhilippinesComprehensiveDemo:
                         check_out = check_in + timedelta(hours=work_hours, minutes=random.randint(0, 59))
                         
                         worked_hours = (check_out - check_in).total_seconds() / 3600
-                        at_work = min(worked_hours, 8.0)
+                        at_work_hours = min(worked_hours, 8.0)
                         overtime = max(0, worked_hours - 8.0)
                         
                         Attendance.objects.get_or_create(
                             employee_id=employee,
                             attendance_date=current_date,
                             defaults={
-                                'attendance_clock_in': check_in,
-                                'attendance_clock_out': check_out,
+                                'shift_id': shift,
+                                'attendance_clock_in_date': current_date,
+                                'attendance_clock_in': check_in.time(),
+                                'attendance_clock_out_date': current_date,
+                                'attendance_clock_out': check_out.time(),
                                 'attendance_worked_hour': f"{int(worked_hours):02d}:{int((worked_hours % 1) * 60):02d}",
-                                'at_work': at_work,
+                                'at_work_second': int(at_work_hours * 3600),
                                 'overtime_second': int(overtime * 3600),
                                 'attendance_validated': True,
                                 'is_validate_request': False,
@@ -560,17 +700,22 @@ class PhilippinesComprehensiveDemo:
         ]
         
         for name, days, color, is_compensatory in leave_types_config:
-            leave_type, _ = LeaveType.objects.get_or_create(
-                name=name,
-                defaults={
-                    'color': color,
-                    'is_compensatory_leave': is_compensatory,
-                    'total_days': days,
-                    'reset': True,
-                    'reset_based': 'yearly',
-                    'carryforward_type': 'no carryforward',
-                }
-            )
+            leave_type = LeaveType.objects.filter(name=name).first()
+            if not leave_type:
+                # Set company_id to avoid save() method trying to access request.session
+                leave_type = LeaveType(
+                    name=name,
+                    color=color,
+                    is_compensatory_leave=is_compensatory,
+                    total_days=days,
+                    reset=True,
+                    reset_based='yearly',
+                    reset_month='1',  # January
+                    reset_day='1',    # 1st day
+                    carryforward_type='no carryforward',
+                    company_id=self.company  # Set company_id to bypass session lookup
+                )
+                leave_type.save()
             self.leave_types[name] = leave_type
         
         self.log(f"Created {len(self.leave_types)} leave types")
@@ -679,10 +824,13 @@ class PhilippinesComprehensiveDemo:
         laptop_brands = ['Dell Latitude', 'HP EliteBook', 'Lenovo ThinkPad', 'MacBook Pro', 'ASUS VivoBook']
         monitor_brands = ['Dell UltraSharp', 'LG', 'Samsung', 'ASUS', 'BenQ']
         
+        # Use first employee (likely admin/manager) as the one assigning assets
+        assigned_by = self.employees[0] if self.employees else None
+        
         for i, employee in enumerate(self.employees):
             # Each employee gets a laptop
             laptop_cat = self.asset_categories.get('Laptop')
-            if laptop_cat:
+            if laptop_cat and assigned_by:
                 laptop = Asset.objects.create(
                     asset_name=f"{random.choice(laptop_brands)} - {i+1:03d}",
                     asset_category_id=laptop_cat,
@@ -695,8 +843,8 @@ class PhilippinesComprehensiveDemo:
                 AssetAssignment.objects.create(
                     asset_id=laptop,
                     assigned_to_employee_id=employee,
+                    assigned_by_employee_id=assigned_by,
                     assigned_date=employee.employee_work_info.date_joining if hasattr(employee, 'employee_work_info') else date.today(),
-                    asset_status='In use',
                 )
                 asset_count += 1
                 assignment_count += 1
@@ -704,7 +852,7 @@ class PhilippinesComprehensiveDemo:
             # 70% get a monitor
             if random.random() < 0.7:
                 monitor_cat = self.asset_categories.get('Monitor')
-                if monitor_cat:
+                if monitor_cat and assigned_by:
                     monitor = Asset.objects.create(
                         asset_name=f"{random.choice(monitor_brands)} 24\" - {i+1:03d}",
                         asset_category_id=monitor_cat,
@@ -717,8 +865,8 @@ class PhilippinesComprehensiveDemo:
                     AssetAssignment.objects.create(
                         asset_id=monitor,
                         assigned_to_employee_id=employee,
+                        assigned_by_employee_id=assigned_by,
                         assigned_date=employee.employee_work_info.date_joining if hasattr(employee, 'employee_work_info') else date.today(),
-                        asset_status='In use',
                     )
                     asset_count += 1
                     assignment_count += 1
@@ -733,15 +881,24 @@ class PhilippinesComprehensiveDemo:
         
         self.header("Helpdesk Tickets")
         
-        # Ticket types
+        # Ticket types (title, type, prefix)
         ticket_types_config = [
-            'IT Support', 'HR Inquiry', 'Payroll Issue', 
-            'Leave Request Help', 'System Access', 'Other'
+            ('IT Support', 'service_request', 'IT'),
+            ('HR Inquiry', 'service_request', 'HR'),
+            ('Payroll Issue', 'complaint', 'PAY'),
+            ('Leave Request Help', 'service_request', 'LVE'),
+            ('System Access', 'service_request', 'SYS'),
+            ('Other', 'others', 'OTH')
         ]
         
-        for tt_name in ticket_types_config:
+        for tt_name, tt_type, tt_prefix in ticket_types_config:
             tt, _ = TicketType.objects.get_or_create(
-                title=tt_name
+                title=tt_name,
+                defaults={
+                    'type': tt_type,
+                    'prefix': tt_prefix,
+                    'company_id': self.company
+                }
             )
             self.ticket_types[tt_name] = tt
         
@@ -762,18 +919,21 @@ class PhilippinesComprehensiveDemo:
             'Email access problem',
         ]
         
-        for employee in random.sample(self.employees, k=int(len(self.employees) * 0.2)):
+        for employee in random.sample(self.employees, k=min(8, int(len(self.employees) * 0.2))):
             ticket_type = random.choice(list(self.ticket_types.values()))
+            assigned_to = random.choice(self.employees[:5])  # Assign to first 5 employees (managers/admins)
             
-            Ticket.objects.create(
+            ticket = Ticket(
                 employee_id=employee,
-                ticket_type_id=ticket_type,
+                ticket_type=ticket_type,
                 title=random.choice(ticket_titles),
                 description=f"Hello, I need assistance with {ticket_type.title.lower()}. Please help.",
                 priority=random.choice(['low', 'medium', 'high']),
-                status=random.choice(['open', 'in_progress', 'resolved', 'closed']),
-                created_at=datetime.now() - timedelta(days=random.randint(1, 60)),
+                assigning_type='employee',
+                raised_on=str(assigned_to.pk),
             )
+            ticket.save()
+            ticket.assigned_to.add(assigned_to)
             ticket_count += 1
         
         self.log(f"Created {ticket_count} support tickets")
@@ -782,56 +942,55 @@ class PhilippinesComprehensiveDemo:
         """Create allowances, deductions, and sample payslips"""
         self.header("Payroll Data")
         
-        # Create allowances
+        # Create allowances (manual creation to avoid save() bug)
         allowance_config = [
-            ('Transportation Allowance', 2000, 'fixed', 'monthly'),
-            ('Meal Allowance', 1500, 'fixed', 'monthly'),
-            ('Communication Allowance', 1000, 'fixed', 'monthly'),
+            ('Transportation Allowance', 2000),
+            ('Meal Allowance', 1500),
+            ('Communication Allowance', 1000),
         ]
         
-        for name, amount, rate_type, pay_frequency in allowance_config:
-            Allowance.objects.get_or_create(
-                title=name,
-                defaults={
-                    'company_id': self.company,
-                    'amount': Decimal(str(amount)),
-                    'rate_type': rate_type,
-                    'pay_frequency': pay_frequency,
-                    'is_taxable': True,
-                    'is_fixed': True,
-                }
-            )
+        for name, amount in allowance_config:
+            if not Allowance.objects.filter(title=name).exists():
+                allowance = Allowance(
+                    title=name,
+                    company_id=self.company,
+                    amount=float(amount),
+                    is_taxable=True,
+                    is_fixed=True,
+                    include_active_employees=True,
+                )
+                allowance.save()
         
         self.log("Created allowances (Transportation, Meal, Communication)")
         
-        # Create PH deductions
+        # Create PH deductions (manual creation to avoid save() bug)
         deduction_config = [
-            ('SSS Contribution', 'percentage', 'Philippines'),
-            ('PhilHealth Contribution', 'percentage', 'Philippines'),
-            ('Pag-IBIG Contribution', 'percentage', 'Philippines'),
-            ('Withholding Tax', 'percentage', 'Philippines'),
+            ('SSS Contribution', False),  # is_tax
+            ('PhilHealth Contribution', False),
+            ('Pag-IBIG Contribution', False),
+            ('Withholding Tax', True),
         ]
         
-        for name, rate_type, country in deduction_config:
-            Deduction.objects.get_or_create(
-                title=name,
-                defaults={
-                    'company_id': self.company,
-                    'deduction_type': rate_type,
-                    'country': country,
-                    'is_fixed': False,
-                    'is_pretax': True,
-                }
-            )
+        for name, is_tax in deduction_config:
+            if not Deduction.objects.filter(title=name).exists():
+                deduction = Deduction(
+                    title=name,
+                    company_id=self.company,
+                    country='PH',
+                    is_tax=is_tax,
+                    is_pretax=True,
+                    include_active_employees=True,
+                )
+                deduction.save()
         
         self.log("Created PH deductions (SSS, PhilHealth, Pag-IBIG, Tax)")
         
-        # Generate payslips for September (for 20 employees)
+        # Generate payslips for September (for all employees)
         payslip_count = 0
         allowances = list(Allowance.objects.filter(company_id=self.company))
-        deductions = list(Deduction.objects.filter(company_id=self.company, country='Philippines'))
+        deductions = list(Deduction.objects.filter(company_id=self.company, country='PH'))
         
-        for employee in self.employees[:20]:
+        for employee in self.employees:
             contract = Contract.objects.filter(employee_id=employee).first()
             if not contract:
                 continue
@@ -840,27 +999,32 @@ class PhilippinesComprehensiveDemo:
             sept_1_start = date(2025, 9, 1)
             sept_1_end = date(2025, 9, 15)
             
-            basic_pay = contract.wage / 2  # Semi-monthly
-            allowance_total = sum([a.amount for a in allowances])
+            basic_pay = Decimal(str(contract.wage)) / Decimal('2')  # Semi-monthly
+            allowance_total = Decimal(str(sum([a.amount for a in allowances])))
             gross_pay = basic_pay + allowance_total
             
             # Approximate deductions (15% of gross)
             deduction_total = gross_pay * Decimal('0.15')
             net_pay = gross_pay - deduction_total
             
+            # Pay head data includes all allowances and deductions
+            pay_head_data = {
+                'allowances': [{'title': a.title, 'amount': float(a.amount)} for a in allowances],
+                'deductions': [{'title': d.title, 'amount': float(deduction_total / len(deductions))} for d in deductions]
+            }
+            
             payslip_1 = Payslip.objects.create(
                 employee_id=employee,
                 start_date=sept_1_start,
                 end_date=sept_1_end,
-                pay_period='semi-monthly',
-                basic_pay=basic_pay,
-                gross_pay=gross_pay,
-                net_pay=net_pay,
+                pay_head_data=pay_head_data,
+                contract_wage=float(contract.wage),
+                basic_pay=float(basic_pay),
+                gross_pay=float(gross_pay),
+                deduction=float(deduction_total),
+                net_pay=float(net_pay),
                 status='paid',
-                company_id=self.company,
             )
-            payslip_1.allowance.set(allowances)
-            payslip_1.deduction.set(deductions)
             payslip_count += 1
             
             # September 16-30 payslip
@@ -871,48 +1035,70 @@ class PhilippinesComprehensiveDemo:
                 employee_id=employee,
                 start_date=sept_2_start,
                 end_date=sept_2_end,
-                pay_period='semi-monthly',
-                basic_pay=basic_pay,
-                gross_pay=gross_pay,
-                net_pay=net_pay,
+                pay_head_data=pay_head_data,
+                contract_wage=float(contract.wage),
+                basic_pay=float(basic_pay),
+                gross_pay=float(gross_pay),
+                deduction=float(deduction_total),
+                net_pay=float(net_pay),
                 status='paid',
-                company_id=self.company,
             )
-            payslip_2.allowance.set(allowances)
-            payslip_2.deduction.set(deductions)
             payslip_count += 1
         
         self.log(f"Generated {payslip_count} payslips for September 2025")
     
     def configure_philippines_system(self):
-        """Activate PH payroll config"""
+        """Activate PH payroll config and set currency"""
         self.header("Philippines Configuration")
         
-        config, _ = PayrollCountryConfig.objects.get_or_create(
-            country='Philippines',
+        # Set PayrollSettings currency to PHP
+        from payroll.models import PayrollSettings
+        payroll_settings, created = PayrollSettings.objects.get_or_create(
+            company_id=self.company,
             defaults={
-                'is_active': True,
-                'requires_region': True,
-                'requires_tax_status': True,
-                'has_mandatory_benefits': True,
-                'mandatory_benefits_list': 'SSS, PhilHealth, Pag-IBIG',
+                'currency_symbol': '₱',
+                'position': 'prefix',  # ₱ goes before amount
             }
         )
+        if not created:
+            payroll_settings.currency_symbol = '₱'
+            payroll_settings.position = 'prefix'
+            payroll_settings.save()
         
-        if not config.is_active:
+        self.log(f"Payroll currency {'set' if created else 'updated'} to Philippine Peso (PHP)")
+        
+        # Deactivate any active configs first
+        PayrollCountryConfig.objects.filter(is_active=True, company_id=self.company).update(is_active=False)
+        
+        # Create or activate Philippines payroll config
+        from django.contrib.auth.models import User
+        admin_user = User.objects.filter(username='admin').first()
+        admin_employee = Employee.objects.filter(employee_user_id=admin_user).first() if admin_user else None
+        
+        config, created = PayrollCountryConfig.objects.get_or_create(
+            country='PH',
+            company_id=self.company,
+            defaults={
+                'is_active': True,
+                'activated_by': admin_employee,
+            }
+        )
+        if not created:
             config.is_active = True
+            config.activated_by = admin_employee
             config.save()
         
-        self.log("Philippines payroll system activated")
+        self.log(f"Philippines payroll configuration {'created and ' if created else ''}activated (currency: PHP)")
+        self.log("Philippines payroll system ready")
     
     def print_summary(self):
         """Print completion summary"""
         print("\n" + "=" * 80)
-        print("  ✓ PHILIPPINES DEMO DATA LOADED SUCCESSFULLY!")
+        print("  [SUCCESS] PHILIPPINES DEMO DATA LOADED SUCCESSFULLY!")
         print("=" * 80)
         print(f"\n[SUMMARY]")
         print(f"   Company: {self.company.company}")
-        print(f"   Employees: {len(self.employees)} (salaries: ₱25,000 - ₱250,000)")
+        print(f"   Employees: {len(self.employees)} (salaries: PHP 25,000 - PHP 250,000)")
         print(f"   Departments: {len(self.departments)}")
         print(f"   Positions: {len(self.positions)}")
         print(f"   Attendance: Sep & Oct 2025 (full months)")
@@ -944,6 +1130,9 @@ class PhilippinesComprehensiveDemo:
         print("=" * 80)
         
         try:
+            # Setup fake request for models that require it (like LeaveType)
+            self.setup_fake_request()
+            
             # Wrap entire operation in atomic transaction
             # If any signal hits missing table, rollback everything
             with transaction.atomic():

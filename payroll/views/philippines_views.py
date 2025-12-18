@@ -35,6 +35,44 @@ from employee.models import Employee
 
 
 @login_required
+def philippines_payroll_reference(request):
+    """
+    Unified Philippine Payroll Reference Page
+    Combines all informational pages: SSS, PhilHealth, Pag-IBIG, Tax Brackets, 
+    Regional Wages, 13th Month, Overtime, Holidays, COLA
+    """
+    # Get all reference data
+    sss_contributions = PhilippinesSSSContribution.objects.all().order_by('min_salary')
+    philhealth_contributions = PhilippinesPhilHealthContribution.objects.all().order_by('min_salary')
+    pagibig_contributions = PhilippinesPagIbigContribution.objects.all().order_by('min_salary')
+    tax_brackets = PhilippinesTaxBracket.objects.all().order_by('min_annual_income')
+    regions = PhilippinesRegion.objects.all().order_by('region_code')
+    thirteenth_month_configs = PhilippinesThirteenthMonthPay.objects.all().order_by('-year')
+    overtime_rules = PhilippinesOvertimeRule.objects.all()
+    holidays = PhilippinesHolidayPay.objects.all().order_by('holiday_date')
+    cola_list = PhilippinesCOLA.objects.all().select_related('region').order_by('region__region_code')
+    
+    # Pagination for SSS (largest table)
+    paginator = Paginator(sss_contributions, 25)
+    page_number = request.GET.get('page')
+    sss_page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'sss_contributions': sss_page_obj,
+        'philhealth_contributions': philhealth_contributions,
+        'pagibig_contributions': pagibig_contributions,
+        'tax_brackets': tax_brackets,
+        'regions': regions,
+        'thirteenth_month_configs': thirteenth_month_configs,
+        'overtime_rules': overtime_rules,
+        'holidays': holidays,
+        'cola_list': cola_list,
+        'title': 'Philippine Payroll Reference',
+    }
+    return render(request, 'payroll/philippines/payroll_reference.html', context)
+
+
+@login_required
 def philippines_sss_contributions(request):
     """View SSS contribution table"""
     contributions = PhilippinesSSSContribution.objects.all().order_by('min_salary')

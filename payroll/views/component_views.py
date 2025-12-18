@@ -107,7 +107,9 @@ operator_mapping = {
 }
 
 
-def payroll_calculation(employee, start_date, end_date, request=None):
+def payroll_calculation(employee, start_date, end_date, request=None,
+                       apply_sss=True, apply_philhealth=True, 
+                       apply_pagibig=True, apply_tax=True, apply_allowances=True):
     """
     Calculate payroll components for the specified employee within the given date range.
 
@@ -116,6 +118,11 @@ def payroll_calculation(employee, start_date, end_date, request=None):
         start_date (date): The start date of the payroll period.
         end_date (date): The end date of the payroll period.
         request (HttpRequest, optional): HTTP request object for accessing cached country config.
+        apply_sss (bool): Whether to apply SSS contribution deduction.
+        apply_philhealth (bool): Whether to apply PhilHealth contribution deduction.
+        apply_pagibig (bool): Whether to apply Pag-IBIG contribution deduction.
+        apply_tax (bool): Whether to apply withholding tax deduction.
+        apply_allowances (bool): Whether to include allowances in gross pay.
 
     Returns:
         dict: A dictionary containing the calculated payroll components.
@@ -180,7 +187,14 @@ def payroll_calculation(employee, start_date, end_date, request=None):
         
         # Execute PH calculation with error handling
         try:
-            result = philippines_payroll_calculation(employee, start_date, end_date)
+            result = philippines_payroll_calculation(
+                employee, start_date, end_date,
+                apply_sss=apply_sss,
+                apply_philhealth=apply_philhealth,
+                apply_pagibig=apply_pagibig,
+                apply_tax=apply_tax,
+                apply_allowances=apply_allowances
+            )
             logger.info(f"Successfully calculated PH payroll for employee {employee.id}")
             return result
         except Exception as e:
@@ -825,22 +839,55 @@ def generate_payslip(request):
     if request.method == "POST":
         form = forms.GeneratePayslipForm(request.POST)
         if form.is_valid():
+            import sys
+            print("="*80, file=sys.stderr)
+            print("[BULK PAYSLIP GENERATION STARTED]", file=sys.stderr)
+            print("="*80, file=sys.stderr)
+            
             instances = []
             employees = form.cleaned_data["employee_id"]
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
+            
+            # Extract deduction control flags from form
+            apply_sss = form.cleaned_data.get("apply_sss", True)
+            apply_philhealth = form.cleaned_data.get("apply_philhealth", True)
+            apply_pagibig = form.cleaned_data.get("apply_pagibig", True)
+            apply_tax = form.cleaned_data.get("apply_tax", True)
+            apply_allowances = form.cleaned_data.get("apply_allowances", True)
+            
+            print(f"[DEBUG] Raw dates from form: start_date={start_date}, end_date={end_date}", file=sys.stderr)
+            print(f"[DEBUG] Deduction flags: SSS={apply_sss}, PhilHealth={apply_philhealth}, Pag-IBIG={apply_pagibig}, Tax={apply_tax}, Allowances={apply_allowances}", file=sys.stderr)
+            print(f"[DEBUG] Date comparison: end_date < start_date = {end_date < start_date}", file=sys.stderr)
+
+            # Fix: Swap dates if they're reversed
+            if end_date < start_date:
+                print(f"[WARNING Bulk] Dates reversed! Swapping start_date ({start_date}) and end_date ({end_date})", file=sys.stderr)
+                start_date, end_date = end_date, start_date
+                print(f"[INFO Bulk] After swap: start_date={start_date}, end_date={end_date}", file=sys.stderr)
 
             group_name = form.cleaned_data["group_name"]
             for employee in employees:
+                # Use local variables to avoid modifying loop-shared dates
+                employee_start_date = start_date
+                employee_end_date = end_date
+                
                 contract = Contract.objects.filter(
                     employee_id=employee, contract_status="active"
                 ).first()
-                if start_date < contract.contract_start_date:
-                    start_date = contract.contract_start_date
+                if employee_start_date < contract.contract_start_date:
+                    employee_start_date = contract.contract_start_date
                 
                 # Handle payroll calculation with error handling
                 try:
-                    payslip = payroll_calculation(employee, start_date, end_date, request)
+                    payslip = payroll_calculation(
+                        employee, employee_start_date, employee_end_date, request,
+                        apply_sss=apply_sss,
+                        apply_philhealth=apply_philhealth,
+                        apply_pagibig=apply_pagibig,
+                        apply_tax=apply_tax,
+                        apply_allowances=apply_allowances
+                    )
                     payslips.append(payslip)
                     json_data.append(payslip["json_data"])
                 except ValidationError as e:
@@ -954,6 +1001,9 @@ def create_payslip(request, new_post_data=None):
     form = forms.PayslipForm()
 
     if request.method == "POST":
+        # Debug: Print raw POST data
+        print(f"[DEBUG POST Data] start_date: {request.POST.get('start_date')}, end_date: {request.POST.get('end_date')}")
+        
         employee_id = request.POST.get("employee_id")
         start_date = (
             datetime.strptime(request.POST.get("start_date"), "%Y-%m-%d").date()
@@ -971,10 +1021,14 @@ def create_payslip(request, new_post_data=None):
                 new_post_data["start_date"] = contract.contract_start_date
                 request.POST = new_post_data
         form = forms.PayslipForm(request.POST)
+        print(f"[DEBUG] Form is_valid: {form.is_valid()}")
+        if not form.is_valid():
+            print(f"[DEBUG] Form errors: {form.errors}")
         if form.is_valid():
             employee = form.cleaned_data["employee_id"]
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
+            print(f"[DEBUG Form cleaned_data] start_date: {start_date}, end_date: {end_date}")
             payslip = Payslip.objects.filter(
                 employee_id=employee, start_date=start_date, end_date=end_date
             ).first()
@@ -984,9 +1038,30 @@ def create_payslip(request, new_post_data=None):
                 start_date = form.cleaned_data["start_date"]
                 end_date = form.cleaned_data["end_date"]
                 
+                # Extract deduction control flags from form
+                apply_sss = form.cleaned_data.get("apply_sss", True)
+                apply_philhealth = form.cleaned_data.get("apply_philhealth", True)
+                apply_pagibig = form.cleaned_data.get("apply_pagibig", True)
+                apply_tax = form.cleaned_data.get("apply_tax", True)
+                apply_allowances = form.cleaned_data.get("apply_allowances", True)
+                
+                # Fix: Swap dates if they're reversed
+                if end_date < start_date:
+                    print(f"[WARNING] Dates reversed! Swapping start_date ({start_date}) and end_date ({end_date})")
+                    start_date, end_date = end_date, start_date
+                    print(f"[INFO] After swap: start_date={start_date}, end_date={end_date}")
+                
                 # Handle payroll calculation with error handling
+                payslip_data = None
                 try:
-                    payslip_data = payroll_calculation(employee, start_date, end_date, request)
+                    payslip_data = payroll_calculation(
+                        employee, start_date, end_date, request,
+                        apply_sss=apply_sss,
+                        apply_philhealth=apply_philhealth,
+                        apply_pagibig=apply_pagibig,
+                        apply_tax=apply_tax,
+                        apply_allowances=apply_allowances
+                    )
                     payslip_data["payslip"] = payslip
                     data = {}
                     data["employee"] = employee
@@ -1008,6 +1083,22 @@ def create_payslip(request, new_post_data=None):
                     payslip_data["instance"] = save_payslip(**data)
                     form = forms.PayslipForm()
                     messages.success(request, _("Payslip Saved"))
+                    
+                    # Send notification only if payslip was created successfully
+                    payslip = payslip_data["instance"]
+                    notify.send(
+                        request.user.employee_get,
+                        recipient=employee.employee_user_id,
+                        verb="Payslip has been generated for you.",
+                        verb_ar="تم إصدار كشف راتب لك.",
+                        verb_de="Gehaltsabrechnung wurde für Sie erstellt.",
+                        verb_es="Se ha generado la nómina para usted.",
+                        verb_fr="La fiche de paie a été générée pour vous.",
+                        redirect=reverse(
+                            "view-created-payslip", kwargs={"payslip_id": payslip.pk}
+                        ),
+                        icon="close",
+                    )
                 except ValidationError as e:
                     messages.error(
                         request,
@@ -1020,20 +1111,6 @@ def create_payslip(request, new_post_data=None):
                         _("Unexpected error generating payslip. Please contact support.")
                     )
                     logger.error(f"Unexpected error in payslip calculation for employee {employee.id}: {e}", exc_info=True)
-                payslip = payslip_data["instance"]
-                notify.send(
-                    request.user.employee_get,
-                    recipient=employee.employee_user_id,
-                    verb="Payslip has been generated for you.",
-                    verb_ar="تم إصدار كشف راتب لك.",
-                    verb_de="Gehaltsabrechnung wurde für Sie erstellt.",
-                    verb_es="Se ha generado la nómina para usted.",
-                    verb_fr="La fiche de paie a été générée pour vous.",
-                    redirect=reverse(
-                        "view-created-payslip", kwargs={"payslip_id": payslip.pk}
-                    ),
-                    icon="close",
-                )
                 return HttpResponse(
                     f'<script>window.location.href = "/payroll/view-payslip/{payslip_data["instance"].id}/"</script>'
                 )

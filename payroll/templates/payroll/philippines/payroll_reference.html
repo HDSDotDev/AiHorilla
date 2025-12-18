@@ -1,0 +1,485 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">
+                {% trans "Philippine Payroll Reference" %}
+            </h1>
+        </div>
+    </section>
+
+    <section class="oh-wrapper">
+        <!-- Quick Navigation -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <h6 class="mb-3">{% trans "Quick Navigation" %}</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="#sss" class="btn btn-sm btn-outline-primary">SSS</a>
+                    <a href="#philhealth" class="btn btn-sm btn-outline-primary">PhilHealth</a>
+                    <a href="#pagibig" class="btn btn-sm btn-outline-primary">Pag-IBIG</a>
+                    <a href="#tax-brackets" class="btn btn-sm btn-outline-primary">Tax Brackets</a>
+                    <a href="#regions" class="btn btn-sm btn-outline-primary">Regional Wages</a>
+                    <a href="#thirteenth-month" class="btn btn-sm btn-outline-primary">13th Month Pay</a>
+                    <a href="#overtime" class="btn btn-sm btn-outline-primary">Overtime</a>
+                    <a href="#holidays" class="btn btn-sm btn-outline-primary">Holidays</a>
+                    <a href="#cola" class="btn btn-sm btn-outline-primary">COLA</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSS Contributions -->
+        <div class="card mb-3" id="sss">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Social Security System (SSS) Contributions" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current SSS contribution rates as per RA 11199" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Range of Compensation" %}</th>
+                                <th class="text-end">{% trans "Monthly Salary Credit" %}</th>
+                                <th class="text-end">{% trans "Employee (EE)" %}</th>
+                                <th class="text-end">{% trans "Employer (ER)" %}</th>
+                                <th class="text-end">{% trans "Total Contribution" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in sss_contributions %}
+                            <tr>
+                                <td>₱{{ item.min_salary|floatformat:2 }} - ₱{{ item.max_salary|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.monthly_salary_credit|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employee_contribution|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employer_contribution|floatformat:2 }}</td>
+                                <td class="text-end fw-bold">₱{{ item.total_contribution|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">{% trans "No SSS contribution data available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if sss_contributions.has_other_pages %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm justify-content-center mt-2">
+                        {% if sss_contributions.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ sss_contributions.previous_page_number }}#sss">{% trans "Previous" %}</a>
+                        </li>
+                        {% endif %}
+                        {% if sss_contributions.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ sss_contributions.next_page_number }}#sss">{% trans "Next" %}</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- PhilHealth Contributions -->
+        <div class="card mb-3" id="philhealth">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Philippine Health Insurance (PhilHealth) Contributions" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current PhilHealth premium rates as per RA 11223" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Monthly Basic Salary" %}</th>
+                                <th class="text-end">{% trans "Premium Rate" %}</th>
+                                <th class="text-end">{% trans "Monthly Premium" %}</th>
+                                <th class="text-end">{% trans "Employee Share" %}</th>
+                                <th class="text-end">{% trans "Employer Share" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in philhealth_contributions %}
+                            <tr>
+                                <td>
+                                    {% if item.max_salary %}
+                                        ₱{{ item.min_salary|floatformat:2 }} - ₱{{ item.max_salary|floatformat:2 }}
+                                    {% else %}
+                                        ₱{{ item.min_salary|floatformat:2 }} and above
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ item.premium_rate|floatformat:2 }}%</td>
+                                <td class="text-end">₱{{ item.monthly_premium|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employee_share|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employer_share|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">{% trans "No PhilHealth contribution data available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pag-IBIG Contributions -->
+        <div class="card mb-3" id="pagibig">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Home Development Mutual Fund (Pag-IBIG) Contributions" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current Pag-IBIG contribution rates as per RA 9679" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Monthly Compensation" %}</th>
+                                <th class="text-end">{% trans "Employee Rate" %}</th>
+                                <th class="text-end">{% trans "Employer Rate" %}</th>
+                                <th class="text-end">{% trans "Employee Contribution" %}</th>
+                                <th class="text-end">{% trans "Employer Contribution" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in pagibig_contributions %}
+                            <tr>
+                                <td>
+                                    {% if item.max_salary %}
+                                        ₱{{ item.min_salary|floatformat:2 }} - ₱{{ item.max_salary|floatformat:2 }}
+                                    {% else %}
+                                        ₱{{ item.min_salary|floatformat:2 }} and above
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ item.employee_rate|floatformat:2 }}%</td>
+                                <td class="text-end">{{ item.employer_rate|floatformat:2 }}%</td>
+                                <td class="text-end">₱{{ item.employee_contribution|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ item.employer_contribution|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">{% trans "No Pag-IBIG contribution data available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BIR Tax Brackets -->
+        <div class="card mb-3" id="tax-brackets">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Bureau of Internal Revenue (BIR) Tax Brackets" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current income tax rates under TRAIN Law (RA 10963)" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Annual Taxable Income" %}</th>
+                                <th class="text-end">{% trans "Base Tax" %}</th>
+                                <th class="text-end">{% trans "Tax Rate" %}</th>
+                                <th class="text-end">{% trans "Excess Over" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bracket in tax_brackets %}
+                            <tr>
+                                <td>
+                                    ₱{{ bracket.min_annual_income|floatformat:2 }}
+                                    {% if bracket.max_annual_income %}
+                                        - ₱{{ bracket.max_annual_income|floatformat:2 }}
+                                    {% else %}
+                                        and above
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">₱{{ bracket.base_tax|floatformat:2 }}</td>
+                                <td class="text-end">{{ bracket.tax_rate|floatformat:2 }}%</td>
+                                <td class="text-end">₱{{ bracket.min_annual_income|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">{% trans "No tax bracket data available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-0 mt-2">
+                    <small><strong>{% trans "Note:" %}</strong> {% trans "These are annual income tax brackets. Monthly withholding tax is computed based on the annualized salary." %}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regional Minimum Wage -->
+        <div class="card mb-3" id="regions">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Regional Minimum Wage" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Current minimum wage rates across all Philippine regions" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Region Code" %}</th>
+                                <th>{% trans "Region Name" %}</th>
+                                <th class="text-end">{% trans "Daily Minimum Wage" %}</th>
+                                <th class="text-end">{% trans "Monthly Minimum Wage" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for region in regions %}
+                            <tr>
+                                <td><span class="badge bg-primary">{{ region.region_code }}</span></td>
+                                <td><strong>{{ region.region_name }}</strong></td>
+                                <td class="text-end">₱{{ region.daily_minimum_wage|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ region.monthly_minimum_wage|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">{% trans "No regional wage data available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-0 mt-2">
+                    <small><strong>{% trans "Note:" %}</strong> {% trans "Minimum wage rates are set by Regional Tripartite Wages and Productivity Boards (RTWPB)." %}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 13th Month Pay Configuration -->
+        <div class="card mb-3" id="thirteenth-month">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "13th Month Pay Configuration" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Configuration for 13th month pay computation as per Presidential Decree No. 851" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Year" %}</th>
+                                <th>{% trans "Computation Method" %}</th>
+                                <th class="text-end">{% trans "Tax Exempt Amount" %}</th>
+                                <th>{% trans "Description" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for config in thirteenth_month_configs %}
+                            <tr>
+                                <td><span class="badge bg-success">{{ config.year }}</span></td>
+                                <td>
+                                    {% if config.computation_method == 'TOTAL_BASIC' %}
+                                        <span class="badge bg-info">Total Basic Salary / 12</span>
+                                    {% elif config.computation_method == 'ONE_MONTH' %}
+                                        <span class="badge bg-warning">One Month Salary</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">₱{{ config.tax_exempt_amount|floatformat:2 }}</td>
+                                <td class="small text-muted">{{ config.description|default:"Standard 13th month pay" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">{% trans "No 13th month pay configuration available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-0 mt-2">
+                    <small><strong>{% trans "Law Reference:" %}</strong> {% trans "Presidential Decree No. 851 mandates all employers to pay their rank-and-file employees a 13th month pay not later than December 24 of every year." %}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overtime Rules -->
+        <div class="card mb-3" id="overtime">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Overtime Pay Multipliers" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Overtime rates as per Philippine Labor Code (PD 442)" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Overtime Type" %}</th>
+                                <th class="text-end">{% trans "Multiplier" %}</th>
+                                <th>{% trans "Description" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rule in overtime_rules %}
+                            <tr>
+                                <td><strong>{{ rule.get_overtime_type_display }}</strong></td>
+                                <td class="text-end">
+                                    <span class="badge bg-primary" style="font-size: 0.9em;">{{ rule.multiplier|floatformat:2 }}x</span>
+                                </td>
+                                <td class="small text-muted">
+                                    {% if rule.overtime_type == 'REGULAR' %}
+                                        Work beyond 8 hours on regular days
+                                    {% elif rule.overtime_type == 'REST_DAY' %}
+                                        Work on scheduled rest day
+                                    {% elif rule.overtime_type == 'SPECIAL_HOLIDAY' %}
+                                        Work on special non-working holiday
+                                    {% elif rule.overtime_type == 'SPECIAL_HOLIDAY_REST_DAY' %}
+                                        Work on special holiday falling on rest day
+                                    {% elif rule.overtime_type == 'REGULAR_HOLIDAY' %}
+                                        Work on regular holiday
+                                    {% elif rule.overtime_type == 'REGULAR_HOLIDAY_REST_DAY' %}
+                                        Work on regular holiday falling on rest day
+                                    {% elif rule.overtime_type == 'NIGHT_DIFFERENTIAL' %}
+                                        Additional pay for work from 10 PM to 6 AM
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">{% trans "No overtime rules configured" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-0 mt-2">
+                    <small><strong>{% trans "Note:" %}</strong> {% trans "Overtime pay is computed as: (Hourly Rate × Multiplier × Hours Worked)" %}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Holiday Pay Schedule -->
+        <div class="card mb-3" id="holidays">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Holiday Pay Schedule" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Official holidays with corresponding pay multipliers" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Holiday Name" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th class="text-end">{% trans "Pay Multiplier" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for holiday in holidays %}
+                            <tr>
+                                <td><strong>{{ holiday.holiday_name }}</strong></td>
+                                <td>{{ holiday.holiday_date|date:"F d, Y" }}</td>
+                                <td>
+                                    {% if holiday.holiday_type == 'REGULAR' %}
+                                        <span class="badge bg-danger">Regular Holiday</span>
+                                    {% elif holiday.holiday_type == 'SPECIAL' %}
+                                        <span class="badge bg-warning text-dark">Special Non-Working</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-primary" style="font-size: 0.9em;">{{ holiday.pay_multiplier|floatformat:2 }}x</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">{% trans "No holiday schedule available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-0 mt-2">
+                    <small>
+                        <strong>{% trans "Holiday Pay Rules:" %}</strong>
+                        <ul class="mb-0 mt-1 ps-3">
+                            <li>{% trans "Regular Holidays: 200% of daily rate if worked, 100% if not worked" %}</li>
+                            <li>{% trans "Special Non-Working Days: 130% if worked, 0% if not worked" %}</li>
+                        </ul>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLA -->
+        <div class="card mb-3" id="cola">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "COLA (Cost of Living Allowance)" %}</h5>
+                <p class="text-muted mb-0 small">
+                    {% trans "Regional COLA rates" %}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Region" %}</th>
+                                <th class="text-end">{% trans "Daily COLA" %}</th>
+                                <th class="text-end">{% trans "Monthly COLA" %}</th>
+                                <th>{% trans "Taxable" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cola in cola_list %}
+                            <tr>
+                                <td><strong>{{ cola.region.region_code }}</strong> - {{ cola.region.region_name }}</td>
+                                <td class="text-end">₱{{ cola.daily_cola|floatformat:2 }}</td>
+                                <td class="text-end">₱{{ cola.monthly_cola|floatformat:2 }}</td>
+                                <td>
+                                    {% if cola.is_taxable %}
+                                        <span class="badge bg-warning text-dark">Taxable</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Non-Taxable</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">{% trans "No COLA data available" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-0 mt-2">
+                    <small><strong>{% trans "About COLA:" %}</strong> {% trans "COLA is an allowance granted to employees to compensate for the increased cost of living. It is typically non-taxable and mandated by wage orders." %}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back to Top Button -->
+        <div class="text-center mb-3">
+            <a href="#" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-up"></i> {% trans "Back to Top" %}
+            </a>
+        </div>
+    </section>
+</main>
+{% endblock %}

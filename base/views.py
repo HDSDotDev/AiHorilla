@@ -41,7 +41,7 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from accessibility.accessibility import ACCESSBILITY_FEATURE
@@ -235,6 +235,7 @@ def initialize_database_condition():
     return init_database
 
 
+@ensure_csrf_cookie
 def load_demo_database(request):
     """Load comprehensive demo data (detects database type automatically)"""
     if initialize_database_condition():

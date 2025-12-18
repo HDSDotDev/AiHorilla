@@ -1,0 +1,125 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Manage Report Templates" %}{% endblock %}
+
+{% block content %}
+<div id="payroll-reports" class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card" style="border: 1px solid #dee2e6;">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2" style="color: #212529;">
+                                <i class="bi bi-gear me-2" style="color: #0d6efd;"></i>
+                                {% trans "Manage Report Templates" %}
+                            </h2>
+                            <p class="mb-0" style="color: #6c757d;">{% trans "Configure and manage report templates" %}</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'report-dashboard' %}" class="btn me-2" style="background-color: transparent; color: #6c757d; border: 1px solid #6c757d;">
+                                <i class="bi bi-arrow-left me-1"></i>
+                                {% trans "Back" %}
+                            </a>
+                            <a href="{% url 'report-template-create' %}" class="btn" style="background-color: #0d6efd; color: white; border: none;">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                {% trans "New Template" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="border: 1px solid #dee2e6;">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="templatesTable">
+                            <thead style="background-color: #f8f9fa;">
+                                <tr>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Name" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Category" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Type" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Format" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Status" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Created" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for template in templates %}
+                                <tr>
+                                    <td>
+                                        <div style="font-weight: 600; color: #212529;">{{ template.name }}</div>
+                                        {% if template.description %}
+                                        <small style="color: #6c757d;">{{ template.description|truncatewords:10 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if template.category %}
+                                        <span class="badge" style="background-color: #0dcaf0; color: #212529;">{{ template.category.name }}</span>
+                                        {% else %}
+                                        <span style="color: #6c757d;">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small style="color: #495057;">{{ template.get_report_type_display }}</small></td>
+                                    <td>
+                                        {% if template.output_format == 'pdf' %}
+                                        <i class="bi bi-file-earmark-pdf me-1" style="color: #dc3545;"></i>
+                                        {% elif template.output_format == 'excel' %}
+                                        <i class="bi bi-file-earmark-excel me-1" style="color: #198754;"></i>
+                                        {% elif template.output_format == 'csv' %}
+                                        <i class="bi bi-file-earmark-spreadsheet me-1" style="color: #0dcaf0;"></i>
+                                        {% endif %}
+                                        <span style="color: #495057;">{{ template.get_output_format_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if template.is_active %}
+                                        <span class="badge" style="background-color: #198754; color: white;">{% trans "Active" %}</span>
+                                        {% else %}
+                                        <span class="badge" style="background-color: #6c757d; color: white;">{% trans "Inactive" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small style="color: #495057;">{{ template.created_at|date:"M d, Y" }}</small></td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'report-generate' template.id %}" class="btn" style="background-color: transparent; color: #0d6efd; border: 1px solid #0d6efd;" title="{% trans 'Generate' %}">
+                                                <i class="bi bi-play-fill"></i>
+                                            </a>
+                                            <a href="{% url 'report-template-update' template.id %}" class="btn" style="background-color: transparent; color: #6c757d; border: 1px solid #6c757d;" title="{% trans 'Edit' %}">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'report-template-delete' template.id %}" class="btn" style="background-color: transparent; color: #dc3545; border: 1px solid #dc3545;" title="{% trans 'Delete' %}">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// DataTable initialization (if available)
+if (typeof $.fn.DataTable !== 'undefined') {
+    $('#templatesTable').DataTable({
+        order: [[1, 'asc'], [0, 'asc']], // Sort by category, then name
+        pageLength: 50,
+        responsive: true
+    });
+}
+</script>
+{% endblock %}

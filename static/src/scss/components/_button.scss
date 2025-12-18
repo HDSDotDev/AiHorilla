@@ -4,14 +4,17 @@
 .oh-btn {
   display: block;
   border: none;
-  border-radius: 0rem;
-  padding: 0.8rem 1.25rem;
+  border-radius: $border-radius-md;
+  padding: 0.625rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   cursor: pointer;
   color: $button-text-grey;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  box-shadow: $shadow-sm;
 
   @media (max-width: 575.98px) {
     font-size: 0.8rem !important;
@@ -19,23 +22,35 @@
 
   &:hover {
     background-color: $dark-button-color;
+    transform: translateY(-1px);
+    box-shadow: $shadow-md;
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   &:focus,
   &:focus-visible {
     outline: $brand-color solid 2px;
-    border-radius: 0;
+    outline-offset: 2px;
+    border-radius: $border-radius-md;
     border: none;
   }
 
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
   }
 }
 
 .oh-btn--shadow {
-  filter: drop-shadow(0px 1px 4px rgba(0, 0, 0, 0.1));
+  box-shadow: $shadow-lg;
+  
+  &:hover {
+    box-shadow: $shadow-xl;
+  }
 }
 
 .oh-btn--sq-sm {
@@ -61,20 +76,21 @@
 }
 
 .oh-btn--secondary {
-  background-color: $secondary-color;
+  background: linear-gradient(135deg, $secondary-color 0%, darken($secondary-color, 5%) 100%);
   color: $white;
   text-decoration: none;
+  font-weight: 600;
 
   &:hover,
   &:focus,
   &:focus-visible {
-    background-color: $secondary-color-dark;
+    background: linear-gradient(135deg, $secondary-color-dark 0%, darken($secondary-color-dark, 5%) 100%);
     color: white;
     text-decoration: none;
   }
 
   &:disabled {
-    background-color: $secondary-color;
+    background: $secondary-color;
   }
 }
 

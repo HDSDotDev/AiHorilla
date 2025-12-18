@@ -1,0 +1,188 @@
+/* ========== GLASS EFFECTS ONLY - NO DARK MODE ========== */
+
+/* Vibrant gradient background to make glass visible */
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+    min-height: 100vh !important;
+    color: #24292f !important;
+    position: relative !important;
+}
+
+/* Add texture overlay for better glass visibility */
+body::before {
+    content: '' !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 50%) !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+}
+
+#main,
+#main-section {
+    background: transparent !important;
+    position: relative !important;
+    z-index: 1 !important;
+    padding: 2rem !important;
+}
+
+/* ========== MAXIMUM GLASS EFFECT CARDS ========== */
+
+.oh-card-dashboard,
+.oh-card-dashboard.tile {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+    -webkit-backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 1.75rem !important;
+    padding: 1.5rem !important;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.05) !important;
+    color: #1a1a1a !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* Glass shine effect */
+.oh-card-dashboard::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+    border-radius: inherit !important;
+    pointer-events: none !important;
+}
+
+.oh-card-dashboard:hover {
+    background: rgba(255, 255, 255, 0.35) !important;
+    transform: translateY(-4px) scale(1.01) !important;
+    box-shadow: 
+        0 12px 48px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Card titles */
+.oh-card-dashboard__title,
+.oh-card-dashboard h1,
+.oh-card-dashboard h2,
+.oh-card-dashboard h3,
+.oh-card-dashboard h4 {
+    color: #1a1a1a !important;
+    font-weight: 600 !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+/* Tables inside cards */
+.oh-card-dashboard table {
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+.oh-card-dashboard table th {
+    color: #1a1a1a !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+    font-weight: 600 !important;
+}
+
+.oh-card-dashboard table td {
+    color: #1a1a1a !important;
+}
+
+.oh-card-dashboard table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Employee list cards */
+.oh-list-cards__item,
+.employee-list-item,
+.list-group-item {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-radius: 1rem !important;
+    color: #1a1a1a !important;
+    padding: 1rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+.oh-list-cards__item:hover,
+.employee-list-item:hover {
+    background: rgba(255, 255, 255, 0.35) !important;
+    transform: translateX(4px) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Birthday card - GLASS */
+.oh-card-dashboard--birthday,
+div[class*="birthday"] {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+    -webkit-backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+}
+
+/* Announcement card - GLASS */
+.oh-card-dashboard--announcement,
+div[class*="announcement"] {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+    -webkit-backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+}
+
+/* All cards on right sidebar - GLASS */
+.oh-dashboard__right .oh-card-dashboard {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+    -webkit-backdrop-filter: blur(60px) saturate(250%) brightness(1.1) !important;
+}
+
+/* Employee list container - GLASS (the white background) */
+.oh-card-dashboard__body,
+.oh-list-cards,
+ul.oh-list-cards {
+    background: transparent !important;
+}
+
+/* Individual employee items - MUST be glass */
+.oh-list-cards__item {
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+}
+
+/* Remove dark mode toggle button */
+.theme-toggle-btn {
+    display: none !important;
+}
+
+/* Ensure all text is readable */
+.oh-card-dashboard *,
+.oh-list-cards__item *,
+.employee-list-item * {
+    position: relative !important;
+    z-index: 2 !important;
+    color: #1a1a1a !important;
+}
+
+/* Status labels readable */
+.status-label,
+.expected-working {
+    color: #d32f2f !important;
+    font-weight: 600 !important;
+}

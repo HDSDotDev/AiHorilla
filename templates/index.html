@@ -15,7 +15,7 @@
         var at_work_seconds = {{ request.user.employee_get.get_forecasted_at_work.forecasted_at_work_seconds }}
         var run = 0
     </script>
-    <title class="time-runner stop-runner">BizBloqs</title>
+    <title class="time-runner stop-runner">Nexus</title>
     <link rel="stylesheet" href="{% static 'build/css/driver.min.css' %}" />
     <meta name="theme-color" content="orangered">
     <link rel="manifest" href="{% static 'build/manifest.json' %}">
@@ -28,20 +28,24 @@
 
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="theme-color" content="#ffffff">
-    <link rel="stylesheet" href="{% static 'build/css/style.min.css' %}" />
+    <link rel="stylesheet" href="{% static 'build/css/style.min.css' %}?v=nexus-modern-ui" />
     <link rel="stylesheet" href="{% static 'build/css/sweetalert2.min.css' %}" />
     <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'build/css/summernote-lite.min.css' %}" />
     <link rel="stylesheet" href="{% static 'build/css/orgChart.css' %}" />
     <link rel="stylesheet" href="{% static '/jquery/jqueryui.css' %}">
     <link rel="stylesheet" href="{% static 'build/css/pivottable.min.css' %}" />
+    <!-- GLASS EFFECTS ONLY - NO DARK MODE -->
+    <link rel="stylesheet" href="{% static 'css/nexus-override.css' %}?v=BALANCED-V16" />
     <script src="{% static '/jquery/ajax.js' %}"></script>
     <script src="{% static '/jquery/jquery.min.js' %}"></script>
     <script src="{% static '/jquery/jqueryui.js' %}"></script>
     <script src="{% static '/base/toggleColumn.js' %}"></script>
-    <script src="{% static '/build/js/orgChart.js' %}"></script>
+    <script src="{% static 'build/js/orgChart.js' %}"></script>
     <script src="{% static 'build/js/driver.js' %}"></script>
     <script src="{% static 'build/js/clearFilter.js' %}"></script>
+    <!-- Theme Toggle Script -->
+
 
 
 
@@ -124,16 +128,19 @@
             <!-- End of Notifications activity bar -->
 
             <!-- Start of Nav bar -->
-            <nav class="oh-navbar" style="width: -webkit-fill-available;;">
-                <div class="oh-wrapper oh-navbar__wrapper">
-                    <div class="oh-navbar__toggle-container">
-                        <a href="#" class="oh-navbar__toggle-link oh-link__unstyled" onclick="handleSidebarToggle()">
-                            <img src="{% static 'images/ui/menu.svg' %}" width="24" height="24"
-                                class="oh-navbar__toggle-menu" loading="lazy" />
+            <nav class="oh-navbar" style="width: -webkit-fill-available; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #06b6d4 100%); backdrop-filter: blur(10px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                <div class="oh-wrapper oh-navbar__wrapper" style="padding: 0.75rem 1.5rem;">
+                    <div class="oh-navbar__toggle-container" style="display: flex; align-items: center; gap: 1rem;">
+                        <a href="#" class="oh-navbar__toggle-link oh-link__unstyled" onclick="handleSidebarToggle()" style="background: rgba(255, 255, 255, 0.15); border-radius: 0.5rem; padding: 0.5rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.25)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.15)'">
+                            <img src="{% static 'images/ui/menu.svg' %}" width="20" height="20"
+                                class="oh-navbar__toggle-menu" loading="lazy" style="filter: brightness(0) invert(1);" />
                         </a>
-                        <span class="oh-navbar__page-title" style="font-size: 20px; font-weight: 600; margin-left: 10px;">BizBloqs</span>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);">N</div>
+                            <span class="oh-navbar__page-title" style="font-size: 22px; font-weight: 700; margin-left: 0; color: white; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); letter-spacing: -0.5px;">Nexus</span>
+                        </div>
                     </div>
-                    <div class="oh-navbar__systray">
+                    <div class="oh-navbar__systray" style="display: flex; align-items: center; gap: 0.5rem;">
                         {% if "attendance"|app_installed %}
                             <!-- Start of check in/out button in nav bar -->
                             <div id="attendance-activity-container">
@@ -171,11 +178,12 @@
                         <!-- End of profile dropdown in nav bar -->
                     </div>
                 </div>
-                <!-- Start of quick access in index page -->
-                {% include "floating_button.html" %}
-                <!-- End of quick access in index page -->
             </nav>
             <!-- End of Nav bar -->
+            
+            <!-- Start of quick access in index page -->
+            {% include "floating_button.html" %}
+            <!-- End of quick access in index page -->
 
             <!-- Start of main section -->
             <div id='main-section'>
@@ -273,12 +281,12 @@
             }
             // accessing initial worked hours from the user
             $(".time-runner").not("title").html(secondsToDuration(at_work_seconds));
-            $("title.time-runner").html("BizBloqs | " + secondsToDuration(at_work_seconds));
+            $("title.time-runner").html("Nexus | " + secondsToDuration(at_work_seconds));
             setInterval(() => {
                 if (run) {
                     at_work_seconds = at_work_seconds + 1
                     $("div.time-runner").html(secondsToDuration(at_work_seconds));
-                    $("title").html("BizBloqs | " + secondsToDuration(at_work_seconds));
+                    $("title").html("Nexus | " + secondsToDuration(at_work_seconds));
                 }
             }, 1000);
 

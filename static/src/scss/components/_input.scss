@@ -3,13 +3,16 @@ input[type="checkbox"] {
 }
 
 .oh-input {
-  border: 1px solid $border-color;
-  border-radius: 0rem;
-  padding: 0.8rem 1.25rem;
+  border: 1.5px solid $border-color;
+  border-radius: $border-radius-md;
+  padding: 0.75rem 1rem;
   color: $text-color;
+  transition: all 0.2s ease;
+  background-color: $white;
 
   &:read-only {
     border: none;
+    background-color: transparent;
     &:focus,
     &:focus-visible {
       outline: none;
@@ -28,8 +31,9 @@ select {
 
   &:focus,
   &:focus-visible {
-    outline: $brand-color solid 1px;
-    border: 1px solid $brand-color !important;
+    outline: none;
+    border: 2px solid $brand-color !important;
+    box-shadow: 0 0 0 3px rgba($brand-color, 0.1);
   }
 }
 .oh-input--textarea {
@@ -91,10 +95,16 @@ select {
   }
 }
 .oh-select {
-  border: 1px solid $border-color;
-  padding: 0.3rem 0.8rem 0.3rem 0.3rem;
-  border-radius: 0rem;
+  border: 1.5px solid $border-color;
+  padding: 0.5rem 0.8rem 0.5rem 0.75rem;
+  border-radius: $border-radius-md;
   background-color: #fff;
+  transition: all 0.2s ease;
+  
+  &:focus {
+    border-color: $brand-color;
+    box-shadow: 0 0 0 3px rgba($brand-color, 0.1);
+  }
 }
 .oh-select--sm,
 .oh-select--xs-forced {

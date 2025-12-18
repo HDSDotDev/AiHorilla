@@ -40,6 +40,64 @@
                 </div>
             </div>
         </div>
+        <div class="row">
+            <div class="col-12">
+                <h5 class="oh-input__label mb-3 mt-3">{% trans "Deduction Controls" %}</h5>
+                <p class="text-muted mb-3">{% trans "Select which deductions to apply for this pay period" %}</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                <div class="oh-input__group">
+                    <label class="oh-switch">
+                        {{bulk_form.apply_sss}}
+                        <span class="oh-switch__slider"></span>
+                        <span class="oh-switch__label">{% trans "SSS" %}</span>
+                    </label>
+                    {{bulk_form.apply_sss.errors}}
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                <div class="oh-input__group">
+                    <label class="oh-switch">
+                        {{bulk_form.apply_philhealth}}
+                        <span class="oh-switch__slider"></span>
+                        <span class="oh-switch__label">{% trans "PhilHealth" %}</span>
+                    </label>
+                    {{bulk_form.apply_philhealth.errors}}
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                <div class="oh-input__group">
+                    <label class="oh-switch">
+                        {{bulk_form.apply_pagibig}}
+                        <span class="oh-switch__slider"></span>
+                        <span class="oh-switch__label">{% trans "Pag-IBIG" %}</span>
+                    </label>
+                    {{bulk_form.apply_pagibig.errors}}
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <div class="oh-input__group">
+                    <label class="oh-switch">
+                        {{bulk_form.apply_tax}}
+                        <span class="oh-switch__slider"></span>
+                        <span class="oh-switch__label">{% trans "Withholding Tax" %}</span>
+                    </label>
+                    {{bulk_form.apply_tax.errors}}
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <div class="oh-input__group">
+                    <label class="oh-switch">
+                        {{bulk_form.apply_allowances}}
+                        <span class="oh-switch__slider"></span>
+                        <span class="oh-switch__label">{% trans "Allowances" %}</span>
+                    </label>
+                    {{bulk_form.apply_allowances.errors}}
+                </div>
+            </div>
+        </div>
         <div class="oh-modal__dialog-footer p-0 pt-4">
             <input type="submit" value="Generate Payslips" class="oh-btn oh-btn--secondary oh-btn--shadow" />
         </div>

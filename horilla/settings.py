@@ -251,6 +251,16 @@ for host in ALLOWED_HOSTS:
 
 LOGIN_URL = "/login"
 
+# Payroll Configuration
+# Set to 'philippines' to enable Philippines-specific payroll calculations:
+# - Uses 30-day standard month for daily rate calculations
+# - Matches Sprout Payroll and other Philippine payroll systems
+PAYROLL_COUNTRY = env("PAYROLL_COUNTRY", default="philippines")
+
+# Sprout-Compatible Tax Calculation
+# True: Matches Sprout's tax methodology (includes 13th month + de minimis deductions)
+# False: Uses standard BIR calculation (more conservative, higher withholding)
+SPROUT_COMPATIBLE_TAX = env.bool("SPROUT_COMPATIBLE_TAX", default=True)
 
 SIMPLE_HISTORY_REVERT_DISABLED = True
 

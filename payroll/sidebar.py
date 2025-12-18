@@ -35,6 +35,11 @@ SUBMENUS = [
         "redirect": reverse("view-payslip"),
     },
     {
+        "menu": trans("Reports"),
+        "redirect": reverse("report-dashboard"),
+        "accessibility": "payroll.sidebar.reports_accessibility",
+    },
+    {
         "menu": trans("Loan / Advanced Salary"),
         "redirect": reverse("view-loan"),
         "accessibility": "payroll.sidebar.loan_accessibility",
@@ -49,53 +54,13 @@ SUBMENUS = [
         "accessibility": "payroll.sidebar.federal_tax_accessibility",
     },
     {
-        "menu": trans("SSS Contributions"),
-        "redirect": reverse("philippines-sss-contributions"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("PhilHealth Contributions"),
-        "redirect": reverse("philippines-philhealth-contributions"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("Pag-IBIG Contributions"),
-        "redirect": reverse("philippines-pagibig-contributions"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("BIR Tax Brackets"),
-        "redirect": reverse("philippines-tax-brackets"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("Regional Minimum Wage"),
-        "redirect": reverse("philippines-regions"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("13th Month Pay"),
-        "redirect": reverse("philippines-thirteenth-month"),
+        "menu": trans("Philippine Payroll Reference"),
+        "redirect": reverse("philippines-payroll-reference"),
         "accessibility": "payroll.sidebar.philippines_only_menu",
     },
     {
         "menu": trans("Generate 13th Month Pay"),
         "redirect": reverse("philippines-thirteenth-month-generator"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("Overtime Rules"),
-        "redirect": reverse("philippines-overtime-rules"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("Holiday Pay"),
-        "redirect": reverse("philippines-holiday-pay"),
-        "accessibility": "payroll.sidebar.philippines_only_menu",
-    },
-    {
-        "menu": trans("COLA (Cost of Living)"),
-        "redirect": reverse("philippines-cola"),
         "accessibility": "payroll.sidebar.philippines_only_menu",
     },
     {
@@ -135,6 +100,11 @@ def deduction_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 def loan_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm("payroll.view_loanaccount")
+
+
+def reports_accessibility(request, submenu, user_perms, *args, **kwargs):
+    """Reports are accessible to all authenticated users"""
+    return request.user.is_authenticated
 
 
 def federal_tax_accessibility(request, submenu, user_perms, *args, **kwargs):

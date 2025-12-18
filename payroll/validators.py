@@ -36,7 +36,7 @@ def validate_ph_employee_data(employee):
         errors.append("Employee work information not found")
     
     # Validate TIN (Tax Identification Number)
-    tin_field = getattr(employee, 'tin', None) or getattr(employee, 'employee_tin', None)
+    tin_field = getattr(employee, 'tin_number', None) or getattr(employee, 'tin', None) or getattr(employee, 'employee_tin', None)
     if not tin_field:
         errors.append("TIN (Tax Identification Number) is required for Philippines payroll")
     

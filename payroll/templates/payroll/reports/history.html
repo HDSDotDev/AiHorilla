@@ -1,0 +1,235 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Report History" %}{% endblock %}
+
+{% block content %}
+<div id="payroll-reports" class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card" style="border: 1px solid #dee2e6;">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2" style="color: #212529;">
+                                <i class="bi bi-clock-history me-2" style="color: #0d6efd;"></i>
+                                {% trans "Report History" %}
+                            </h2>
+                            <p class="mb-0" style="color: #6c757d;">{% trans "View and download previously generated reports" %}</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'report-dashboard' %}" class="btn" style="background-color: #0d6efd; color: white; border: none;">
+                                <i class="bi bi-arrow-left me-1"></i>
+                                {% trans "Back to Dashboard" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reports Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="border: 1px solid #dee2e6;">
+                <div class="card-body">
+                    {% if reports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="reportsTable">
+                            <thead style="background-color: #f8f9fa;">
+                                <tr>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Report" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Type" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Date Range" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Company/Department" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Status" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Generated" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Processing Time" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in reports %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if report.report_template.output_format == 'pdf' %}
+                                            <i class="bi bi-file-earmark-pdf me-2" style="font-size: 1.5rem; color: #dc3545;"></i>
+                                            {% elif report.report_template.output_format == 'excel' %}
+                                            <i class="bi bi-file-earmark-excel me-2" style="font-size: 1.5rem; color: #198754;"></i>
+                                            {% elif report.report_template.output_format == 'csv' %}
+                                            <i class="bi bi-file-earmark-spreadsheet me-2" style="font-size: 1.5rem; color: #0dcaf0;"></i>
+                                            {% else %}
+                                            <i class="bi bi-file-earmark me-2" style="font-size: 1.5rem; color: #6c757d;"></i>
+                                            {% endif %}
+                                            <div>
+                                                <div style="font-weight: 600; color: #212529;">{{ report.report_template.name }}</div>
+                                                <small style="color: #6c757d;">{{ report.file_name }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background-color: #6c757d; color: white;">
+                                            {{ report.report_template.get_output_format_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if report.date_from and report.date_to %}
+                                        <small style="color: #495057;">
+                                            {{ report.date_from|date:"M d, Y" }}<br>
+                                            {% trans "to" %} {{ report.date_to|date:"M d, Y" }}
+                                        </small>
+                                        {% else %}
+                                        <span style="color: #6c757d;">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if report.company %}
+                                        <small style="color: #495057;"><i class="bi bi-building me-1" style="color: #0d6efd;"></i>{{ report.company.company }}</small><br>
+                                        {% endif %}
+                                        {% if report.department %}
+                                        <small style="color: #495057;"><i class="bi bi-people me-1" style="color: #0d6efd;"></i>{{ report.department.department }}</small>
+                                        {% endif %}
+                                        {% if not report.company and not report.department %}
+                                        <span style="color: #6c757d;">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if report.status == 'completed' %}
+                                        <span class="badge" style="background-color: #198754; color: white;">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            {% trans "Completed" %}
+                                        </span>
+                                        {% elif report.status == 'processing' %}
+                                        <span class="badge" style="background-color: #ffc107; color: #212529;">
+                                            <i class="bi bi-hourglass-split me-1"></i>
+                                            {% trans "Processing" %}
+                                        </span>
+                                        {% elif report.status == 'failed' %}
+                                        <span class="badge" style="background-color: #dc3545; color: white;" data-bs-toggle="tooltip" title="{{ report.error_message }}">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                            {% trans "Failed" %}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge" style="background-color: #6c757d; color: white;">{{ report.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small style="color: #495057;">
+                                            {{ report.generated_at|date:"M d, Y" }}<br>
+                                            {{ report.generated_at|time:"h:i A" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if report.processing_time %}
+                                        <small style="color: #495057;">{{ report.processing_time }}</small>
+                                        {% else %}
+                                        <span style="color: #6c757d;">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if report.status == 'completed' %}
+                                        <a href="{% url 'report-download' report.id %}" class="btn btn-sm" style="background-color: #0d6efd; color: white; border: none;" data-bs-toggle="tooltip" title="{% trans 'Download Report' %}">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% endif %}
+                                        <button class="btn btn-sm" style="background-color: transparent; color: #0dcaf0; border: 1px solid #0dcaf0;" data-bs-toggle="modal" data-bs-target="#reportDetailsModal{{ report.id }}" title="{% trans 'View Details' %}">
+                                            <i class="bi bi-info-circle"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Report Details Modal -->
+                                <div class="modal fade" id="reportDetailsModal{{ report.id }}" tabindex="-1">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">{% trans "Report Details" %}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <dl class="row">
+                                                    <dt class="col-sm-4">{% trans "Report Name" %}</dt>
+                                                    <dd class="col-sm-8">{{ report.report_template.name }}</dd>
+                                                    
+                                                    <dt class="col-sm-4">{% trans "File Name" %}</dt>
+                                                    <dd class="col-sm-8"><code>{{ report.file_name }}</code></dd>
+                                                    
+                                                    <dt class="col-sm-4">{% trans "Status" %}</dt>
+                                                    <dd class="col-sm-8">{{ report.get_status_display }}</dd>
+                                                    
+                                                    <dt class="col-sm-4">{% trans "Generated By" %}</dt>
+                                                    <dd class="col-sm-8">{{ report.generated_by }}</dd>
+                                                    
+                                                    <dt class="col-sm-4">{% trans "Generated At" %}</dt>
+                                                    <dd class="col-sm-8">{{ report.generated_at }}</dd>
+                                                    
+                                                    {% if report.completed_at %}
+                                                    <dt class="col-sm-4">{% trans "Completed At" %}</dt>
+                                                    <dd class="col-sm-8">{{ report.completed_at }}</dd>
+                                                    {% endif %}
+                                                    
+                                                    {% if report.error_message %}
+                                                    <dt class="col-sm-4">{% trans "Error Message" %}</dt>
+                                                    <dd class="col-sm-8"><code class="text-danger">{{ report.error_message }}</code></dd>
+                                                    {% endif %}
+                                                    
+                                                    {% if report.parameters %}
+                                                    <dt class="col-sm-4">{% trans "Parameters" %}</dt>
+                                                    <dd class="col-sm-8"><pre>{{ report.parameters|pprint }}</pre></dd>
+                                                    {% endif %}
+                                                </dl>
+                                            </div>
+                                            <div class="modal-footer">
+                                                {% if report.status == 'completed' %}
+                                                <a href="{% url 'report-download' report.id %}" class="btn btn-primary">
+                                                    <i class="bi bi-download me-1"></i>
+                                                    {% trans "Download" %}
+                                                </a>
+                                                {% endif %}
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox" style="font-size: 4rem; color: #dee2e6;"></i>
+                        <h5 class="mt-3" style="color: #6c757d;">{% trans "No reports generated yet" %}</h5>
+                        <p style="color: #6c757d;">{% trans "Generate your first report from the dashboard" %}</p>
+                        <a href="{% url 'report-dashboard' %}" class="btn" style="background-color: #0d6efd; color: white; border: none;">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            {% trans "Generate Report" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+});
+
+// DataTable initialization (if DataTables is available)
+if (typeof $.fn.DataTable !== 'undefined') {
+    $('#reportsTable').DataTable({
+        order: [[5, 'desc']], // Sort by generated date
+        pageLength: 25,
+        responsive: true
+    });
+}
+</script>
+{% endblock %}

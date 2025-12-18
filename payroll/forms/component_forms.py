@@ -352,6 +352,38 @@ class PayslipForm(ModelForm):
     """
     Form for Payslip
     """
+    
+    # Philippines Deduction Controls
+    apply_sss = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply SSS Contribution",
+        help_text="Deduct full monthly SSS contribution for this pay period"
+    )
+    apply_philhealth = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply PhilHealth Contribution",
+        help_text="Deduct full monthly PhilHealth contribution for this pay period"
+    )
+    apply_pagibig = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply Pag-IBIG Contribution",
+        help_text="Deduct full monthly Pag-IBIG contribution for this pay period"
+    )
+    apply_tax = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply Withholding Tax (BIR)",
+        help_text="Calculate and deduct withholding tax for this pay period"
+    )
+    apply_allowances = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply Allowances",
+        help_text="Include allowances (COLA, etc.) in this pay period"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -369,6 +401,14 @@ class PayslipForm(ModelForm):
                 "hx-trigger": "change delay:300ms",
             }
         )
+        
+        # Style deduction checkboxes
+        self.fields["apply_sss"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_philhealth"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_pagibig"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_tax"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_allowances"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        
         if self.instance.pk is None:
             self.initial["start_date"] = datetime.date.today().replace(day=1)
             self.initial["end_date"] = datetime.date.today()
@@ -426,6 +466,38 @@ class GeneratePayslipForm(HorillaForm):
     )
     start_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
     end_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    
+    # Philippines Deduction Controls
+    apply_sss = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply SSS Contribution",
+        help_text="Deduct full monthly SSS contribution for this pay period"
+    )
+    apply_philhealth = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply PhilHealth Contribution",
+        help_text="Deduct full monthly PhilHealth contribution for this pay period"
+    )
+    apply_pagibig = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply Pag-IBIG Contribution",
+        help_text="Deduct full monthly Pag-IBIG contribution for this pay period"
+    )
+    apply_tax = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply Withholding Tax (BIR)",
+        help_text="Calculate and deduct withholding tax for this pay period"
+    )
+    apply_allowances = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Apply Allowances",
+        help_text="Include allowances (COLA, etc.) in this pay period"
+    )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -463,6 +535,14 @@ class GeneratePayslipForm(HorillaForm):
         self.fields["start_date"].widget.attrs.update({"class": "oh-input w-100"})
         self.fields["group_name"].widget.attrs.update({"class": "oh-input w-100"})
         self.fields["end_date"].widget.attrs.update({"class": "oh-input w-100"})
+        
+        # Style deduction checkboxes
+        self.fields["apply_sss"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_philhealth"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_pagibig"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_tax"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        self.fields["apply_allowances"].widget.attrs.update({"class": "oh-switch__checkbox"})
+        
         self.initial["start_date"] = datetime.date.today().replace(day=1)
         self.initial["end_date"] = datetime.date.today()
 

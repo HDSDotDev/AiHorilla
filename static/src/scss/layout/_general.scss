@@ -8,8 +8,9 @@
 }
 .oh-wrapper-main {
   display: grid;
-  grid-template-columns: 230px auto;
-  transition: all 0.4s ease-in-out;
+  grid-template-columns: 240px auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: $background-color;
 }
 .oh-wrapper-main--no-grid{
   display: unset;

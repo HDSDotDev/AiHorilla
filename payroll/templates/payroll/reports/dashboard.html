@@ -1,0 +1,260 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Payroll Reports" %}{% endblock %}
+
+{% block content %}
+<div id="payroll-reports" class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                <i class="bi bi-file-earmark-text me-2"></i>
+                                {% trans "Payroll Reports" %}
+                            </h2>
+                            <p class="mb-0">{% trans "Generate comprehensive payroll and statutory reports" %}</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'report-history' %}" class="btn btn-outline-primary me-2">
+                                <i class="bi bi-clock-history me-1"></i>
+                                {% trans "History" %}
+                            </a>
+                            {% if request.user.is_superuser %}
+                            <a href="{% url 'report-template-list' %}" class="btn btn-primary">
+                                <i class="bi bi-gear me-1"></i>
+                                {% trans "Manage Templates" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded p-3" style="background-color: #e3f2fd;">
+                                <i class="bi bi-file-earmark-pdf" style="font-size: 2rem; color: #1976d2;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">{% trans "Total Reports" %}</h6>
+                            <h3 class="mb-0" id="total-reports">{{ recent_reports|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded p-3" style="background-color: #e8f5e9;">
+                                <i class="bi bi-check-circle" style="font-size: 2rem; color: #388e3c;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">{% trans "Available Templates" %}</h6>
+                            <h3 class="mb-0">{{ reports|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded p-3" style="background-color: #e0f7fa;">
+                                <i class="bi bi-folder" style="font-size: 2rem; color: #0097a7;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">{% trans "Categories" %}</h6>
+                            <h3 class="mb-0">{{ categories|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded p-3" style="background-color: #fff3e0;">
+                                <i class="bi bi-clock" style="font-size: 2rem; color: #f57c00;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">{% trans "Recent" %}</h6>
+                            <h3 class="mb-0">{{ recent_reports|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Categories -->
+    {% for category in categories %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header border-bottom">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h5 class="mb-0">
+                            <i class="bi {{ category.icon|default:'bi-folder' }} me-2"></i>
+                            {{ category.name }}
+                        </h5>
+                        <a href="{% url 'report-category-view' category.id %}" class="btn btn-sm btn-outline-primary">
+                            {% trans "View All" %}
+                        </a>
+                    </div>
+                    {% if category.description %}
+                    <p class="mb-0 mt-2">{{ category.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for report in reports %}
+                            {% if report.category == category %}
+                            <div class="col-md-4 mb-3">
+                                <div class="card h-100" style="cursor: pointer; border: 1px solid #dee2e6;" onclick="window.location.href='{% url 'report-generate' report.id %}'">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-start">
+                                            <div class="flex-shrink-0">
+                                                {% if report.output_format == 'pdf' %}
+                                                <i class="bi bi-file-earmark-pdf" style="font-size: 2.5rem; color: #dc3545;"></i>
+                                                {% elif report.output_format == 'excel' %}
+                                                <i class="bi bi-file-earmark-excel" style="font-size: 2.5rem; color: #28a745;"></i>
+                                                {% elif report.output_format == 'csv' %}
+                                                <i class="bi bi-file-earmark-spreadsheet" style="font-size: 2.5rem; color: #17a2b8;"></i>
+                                                {% else %}
+                                                <i class="bi bi-file-earmark" style="font-size: 2.5rem; color: #6c757d;"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex-grow-1 ms-3">
+                                                <h6 class="mb-1 fw-bold">{{ report.name }}</h6>
+                                                <small>{{ report.get_output_format_display }}</small>
+                                                {% if report.description %}
+                                                <p class="small mb-0 mt-2">{{ report.description|truncatewords:15 }}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer" style="background-color: #f8f9fa;">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small>
+                                                {% if report.requires_date_range %}
+                                                <i class="bi bi-calendar-range me-1"></i>
+                                                {% endif %}
+                                                {{ report.get_report_type_display }}
+                                            </small>
+                                            <a href="{% url 'report-generate' report.id %}" class="btn btn-sm btn-primary">
+                                                {% trans "Generate" %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Recent Reports -->
+    {% if recent_reports %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="border: 1px solid #dee2e6;">
+                <div class="card-header" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                    <h5 class="mb-0" style="color: #212529;">
+                        <i class="bi bi-clock-history me-2" style="color: #6c757d;"></i>
+                        {% trans "Recent Reports" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead style="background-color: #f8f9fa;">
+                                <tr>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Report Name" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Date Range" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Status" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Generated" %}</th>
+                                    <th style="color: #212529; font-weight: 600;">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in recent_reports %}
+                                <tr>
+                                    <td style="color: #212529;">
+                                        <i class="bi bi-file-earmark-{{ report.report_template.output_format }} me-2" style="color: #0d6efd;"></i>
+                                        {{ report.report_template.name }}
+                                    </td>
+                                    <td style="color: #495057;">
+                                        {% if report.date_from and report.date_to %}
+                                        {{ report.date_from }} - {{ report.date_to }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if report.status == 'completed' %}
+                                        <span class="badge" style="background-color: #198754; color: white;">{% trans "Completed" %}</span>
+                                        {% elif report.status == 'processing' %}
+                                        <span class="badge" style="background-color: #ffc107; color: #212529;">{% trans "Processing" %}</span>
+                                        {% elif report.status == 'failed' %}
+                                        <span class="badge" style="background-color: #dc3545; color: white;">{% trans "Failed" %}</span>
+                                        {% else %}
+                                        <span class="badge" style="background-color: #6c757d; color: white;">{{ report.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="color: #495057;">{{ report.generated_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if report.status == 'completed' %}
+                                        <a href="{% url 'report-download' report.id %}" class="btn btn-sm" style="background-color: #0d6efd; color: white; border: none;">
+                                            <i class="bi bi-download me-1"></i>
+                                            {% trans "Download" %}
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .report-card-hover {
+        transition: transform 0.2s ease-in-out;
+    }
+    .report-card-hover:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}

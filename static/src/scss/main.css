@@ -12754,7 +12754,7 @@ div.ui-tooltip {
 .oh-payslip__employee-title {
   font-size: 0.9rem;
   font-weight: bold;
-  color: hsl(0, 0%, 37%);
+  color: hsl(0, 0%, 20%);
 }
 
 .oh-payslip__employee-details {
@@ -12770,17 +12770,23 @@ div.ui-tooltip {
 
 .oh-payslip__employee-detail-title {
   position: relative;
-  color: hsl(0, 0%, 45%);
+  color: hsl(0, 0%, 25%);
   display: block;
   min-width: 180px;
   margin-right: 1rem;
+  font-weight: 500;
 }
 .oh-payslip__employee-detail-title::after {
   content: ": ";
   position: absolute;
-  color: hsl(0, 0%, 45%);
+  color: hsl(0, 0%, 25%);
   font-size: 0.9rem;
   right: 0;
+}
+
+.oh-payslip__employee-detail-value {
+  color: hsl(0, 0%, 15%);
+  font-weight: 500;
 }
 
 .oh-payslip__summary {
@@ -12810,9 +12816,10 @@ div.ui-tooltip {
 }
 
 .oh-payslip__netpay-title {
-  color: hsl(0, 0%, 37%);
+  color: hsl(0, 0%, 25%);
   display: block;
   margin-bottom: 0.25rem;
+  font-weight: 500;
 }
 
 .oh-payslip__netpay-amount {
@@ -12835,6 +12842,12 @@ div.ui-tooltip {
   .oh-payslip__user-detail {
     margin-bottom: 1rem;
   }
+}
+
+.oh-payslip__user-detail {
+  background-color: #fff;
+  padding: 1rem;
+  border-radius: 8px;
 }
 
 .oh-payslip__table {
@@ -12880,17 +12893,19 @@ div.ui-tooltip {
   font-size: 1.15rem;
   font-weight: bold;
   line-height: 1rem;
+  color: hsl(0, 0%, 15%);
 }
 
 .oh-payslip__net-payable-subtext {
   font-size: 0.95rem;
-  color: hsl(0, 0%, 45%);
+  color: hsl(0, 0%, 30%);
   margin-bottom: 0;
 }
 
 .oh-payslip__net-payable-amount {
   font-size: 1.15rem;
   font-weight: bold;
+  color: hsl(0, 0%, 15%);
 }
 
 .oh-payslip__net-payable-left,
