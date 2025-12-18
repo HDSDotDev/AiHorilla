@@ -133,23 +133,32 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"ℹ Admin user: {e}"))
             self.stdout.flush()
         
-        # Initialize Philippines payroll data (if available)
-        self.stdout.write("\n[3/4] Setting up Philippines payroll data...")
+        # Load production data (if available)
+        self.stdout.write("\n[3/4] Loading production data...")
         self.stdout.flush()
         
         try:
-            # Check if Philippines setup command exists
-            from django.core.management import get_commands
-            commands = get_commands()
-            if 'setup_philippines_payroll' in commands:
-                call_command('setup_philippines_payroll', verbosity=1)
-                self.stdout.write(self.style.SUCCESS("✓ Philippines payroll data loaded"))
-            else:
-                self.stdout.write(self.style.WARNING("ℹ Philippines setup command not found, skipping"))
+            call_command('load_production_data', verbosity=1)
+            self.stdout.write(self.style.SUCCESS("✓ Production data loaded"))
             self.stdout.flush()
         except Exception as e:
-            self.stdout.write(self.style.WARNING(f"ℹ Philippines setup: {e}"))
+            self.stdout.write(self.style.WARNING(f"ℹ Production data: {e}"))
+            self.stdout.write("  Falling back to Philippines payroll setup...")
             self.stdout.flush()
+            
+            # Fallback to Philippines setup if production data not available
+            try:
+                from django.core.management import get_commands
+                commands = get_commands()
+                if 'setup_philippines_payroll' in commands:
+                    call_command('setup_philippines_payroll', verbosity=1)
+                    self.stdout.write(self.style.SUCCESS("✓ Philippines payroll data loaded"))
+                else:
+                    self.stdout.write(self.style.WARNING("ℹ Philippines setup command not found, skipping"))
+                self.stdout.flush()
+            except Exception as e2:
+                self.stdout.write(self.style.WARNING(f"ℹ Philippines setup: {e2}"))
+                self.stdout.flush()
         
         # Collect static files
         self.stdout.write("\n[4/4] Collecting static files...")
