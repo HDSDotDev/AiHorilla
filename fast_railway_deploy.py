@@ -343,8 +343,69 @@ if missing_tables:
 else:
     print(f"  ✓ All {len(critical_tables)} critical tables exist ({time.time() - step_start:.1f}s)")
 
+# Import SQLite data if dump file exists
+print("\n[5/7] Checking for database import...")
+step_start = time.time()
+from pathlib import Path
+dump_file = Path('/app/full_database_dump.json')
+completion_flag = Path('/app/.railway_import_complete')
+
+if dump_file.exists() and not completion_flag.exists():
+    print(f"  ✓ Found {dump_file.name} ({dump_file.stat().st_size / (1024*1024):.1f} MB)")
+    print(f"  → Importing SQLite data to PostgreSQL...")
+    print(f"  ⚠️  This will REPLACE all current data in PostgreSQL!")
+    
+    try:
+        # Set confirmation flag for non-interactive import
+        os.environ['RAILWAY_IMPORT_CONFIRMED'] = 'true'
+        
+        # Flush existing data
+        print(f"    - Clearing existing data...")
+        call_command('flush', '--noinput', verbosity=0)
+        
+        # Import the data
+        print(f"    - Loading {dump_file.name}...")
+        print(f"    - This may take 5-10 minutes...")
+        import_start = time.time()
+        call_command('loaddata', str(dump_file), verbosity=1)
+        import_duration = time.time() - import_start
+        
+        # Create completion flag
+        completion_flag.write_text(f"Import completed at {time.ctime()}\nDuration: {import_duration:.1f}s\n")
+        
+        # Verify import
+        from django.contrib.auth.models import User
+        from base.models import Company, Employee as BaseEmployee
+        try:
+            from employee.models import Employee
+        except:
+            Employee = BaseEmployee
+        
+        user_count = User.objects.count()
+        company_count = Company.objects.count()
+        employee_count = Employee.objects.count()
+        
+        print(f"  ✓ Import complete ({import_duration:.1f}s)")
+        print(f"    - {user_count} users imported")
+        print(f"    - {company_count} companies imported")
+        print(f"    - {employee_count} employees imported")
+        print(f"  ✓ Created {completion_flag.name} to prevent re-import")
+        
+    except Exception as e:
+        print(f"  ✗ Import failed: {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"  → Continuing with deployment...")
+elif completion_flag.exists():
+    print(f"  ✓ Import already completed (found {completion_flag.name})")
+    print(f"    To re-import: delete {completion_flag.name} and redeploy")
+else:
+    print(f"  - No database dump found, skipping import")
+
+print(f"  ({time.time() - step_start:.1f}s)")
+
 # Collect static files
-print("\n[5/6] Collecting static files...")
+print("\n[6/7] Collecting static files...")
 step_start = time.time()
 try:
     call_command('collectstatic', interactive=False, verbosity=0, clear=True)
@@ -353,12 +414,15 @@ except Exception as e:
     print(f"  ⚠ Static collection warning: {e}")
 
 # Final verification
-print("\n[6/6] Final verification...")
+print("\n[7/7] Final verification...")
 step_start = time.time()
 try:
     # Try to import key models
     from base.models import Company
-    from employee.models import Employee
+    try:
+        from employee.models import Employee
+    except:
+        from base.models import Employee as Employee
     from django.contrib.auth.models import User
     
     # Test database queries
