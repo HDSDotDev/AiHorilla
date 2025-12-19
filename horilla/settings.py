@@ -120,6 +120,11 @@ if env("DATABASE_URL", default=None):
     DATABASES = {
         "default": env.db(),
     }
+    # Force SSL for PostgreSQL on Railway
+    if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+        DATABASES["default"]["OPTIONS"] = {
+            "sslmode": "require",
+        }
 else:
     DATABASES = {
         "default": {
