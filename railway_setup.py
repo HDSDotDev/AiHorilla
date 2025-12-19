@@ -136,19 +136,30 @@ except Exception as e:
 
 print("✓ Migration step completed", flush=True)
 
-print("\n=== Creating Admin User ===", flush=True)
+print("\n=== Loading Production Data ===", flush=True)
 try:
-    call_command('createhorillauser', '--username', 'admin', '--password', 'admin', verbosity=0)
-    print("✓ Admin user created (username: admin, password: admin)", flush=True)
+    call_command('load_production_data', verbosity=1)
+    print("✓ Production data loaded successfully", flush=True)
 except Exception as e:
-    print(f"⚠ Admin user creation skipped: {e}", flush=True)
-
-print("\n=== Setting up Philippines Payroll ===", flush=True)
-try:
-    call_command('setup_philippines_payroll', verbosity=0)
-    print("✓ Philippines payroll data loaded", flush=True)
-except Exception as e:
-    print(f"⚠ Philippines setup skipped: {e}", flush=True)
+    error_msg = str(e)
+    print(f"⚠ Production data load failed: {error_msg}", flush=True)
+    print("  Falling back to default setup...", flush=True)
+    
+    # Fallback: Create admin user
+    print("\n=== Creating Admin User (Fallback) ===", flush=True)
+    try:
+        call_command('createhorillauser', '--username', 'admin', '--password', 'admin', verbosity=0)
+        print("✓ Admin user created (username: admin, password: admin)", flush=True)
+    except Exception as e2:
+        print(f"⚠ Admin user creation skipped: {e2}", flush=True)
+    
+    # Fallback: Setup Philippines payroll
+    print("\n=== Setting up Philippines Payroll (Fallback) ===", flush=True)
+    try:
+        call_command('setup_philippines_payroll', verbosity=0)
+        print("✓ Philippines payroll data loaded", flush=True)
+    except Exception as e2:
+        print(f"⚠ Philippines setup skipped: {e2}", flush=True)
 
 print("\n=== Collecting Static Files ===", flush=True)
 try:
