@@ -58,14 +58,20 @@ class HorillaAutomationConfig(AppConfig):
             from django.db import connection
             from django.db.utils import OperationalError, ProgrammingError
 
-            # Check if tables exist before starting automation (PostgreSQL compatible)
+            # Check if tables exist before starting automation (database agnostic)
             try:
                 with connection.cursor() as cursor:
-                    # PostgreSQL-compatible query (works with both SQLite and PostgreSQL)
-                    cursor.execute(
-                        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'horilla_automations_mailautomation')"
-                    )
-                    table_exists = cursor.fetchone()[0]
+                    # Database-agnostic query
+                    if connection.vendor == 'sqlite':
+                        cursor.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table' AND name='horilla_automations_mailautomation'"
+                        )
+                        table_exists = cursor.fetchone() is not None
+                    else:
+                        cursor.execute(
+                            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'horilla_automations_mailautomation')"
+                        )
+                        table_exists = cursor.fetchone()[0]
                     if table_exists:
                         start_automation()
                     else:
