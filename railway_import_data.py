@@ -110,28 +110,61 @@ def clear_database():
 
 def import_data(dump_file):
     """Import data from JSON dump"""
-    print("\n[4/5] Importing Data...")
-    
+    import json
+    from django.apps import apps
+    from django.db import transaction
+    BATCH_SIZE = 500
+    print("\n[4/5] Importing Data (batch mode)...")
     print(f"Loading data from: {dump_file.name}")
-    print("This may take 5-10 minutes for large datasets...")
+    print("This may take 5-20 minutes for large datasets...")
     print("(Railway deployments have a 30-minute timeout)")
-    
     try:
-        call_command('loaddata', str(dump_file), verbosity=2)
-        print("\n✅ Data imported successfully!")
+        with open(dump_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        print(f"Loaded JSON: {len(data):,} objects")
+        # Group by model
+        from collections import defaultdict
+        model_map = defaultdict(list)
+        for obj in data:
+            model_map[obj["model"]].append(obj)
+        print(f"Found {len(model_map)} models in dump.")
+        for model_label, objects in model_map.items():
+            app_label, model_name = model_label.split(".")
+            model = apps.get_model(app_label, model_name)
+            if not model:
+                print(f"  ⚠️  Model not found: {model_label}, skipping...")
+                continue
+            print(f"\nImporting {model_label}: {len(objects):,} records...")
+            # Prepare objects for bulk_create
+            to_create = []
+            for i, obj in enumerate(objects, 1):
+                fields = obj["fields"]
+                # Set PK if present
+                if "pk" in obj:
+                    fields[model._meta.pk.name] = obj["pk"]
+                to_create.append(model(**fields))
+                if len(to_create) >= BATCH_SIZE:
+                    try:
+                        with transaction.atomic():
+                            model.objects.bulk_create(to_create, batch_size=BATCH_SIZE, ignore_conflicts=True)
+                        print(f"    Imported {i}/{len(objects)} records...")
+                    except Exception as e:
+                        print(f"    ❌ Error importing batch ending at {i}: {e}")
+                    to_create = []
+            # Final batch
+            if to_create:
+                try:
+                    with transaction.atomic():
+                        model.objects.bulk_create(to_create, batch_size=BATCH_SIZE, ignore_conflicts=True)
+                    print(f"    Imported {len(objects)}/{len(objects)} records (final batch).")
+                except Exception as e:
+                    print(f"    ❌ Error importing final batch: {e}")
+        print("\n✅ Data imported successfully (batch mode)!")
         return True
-        
     except Exception as e:
         print(f"\n❌ Import failed: {e}")
         import traceback
         traceback.print_exc()
-        
-        # Try to provide helpful error messages
-        if 'duplicate key' in str(e).lower():
-            print("\nError: Duplicate key detected. The database may not have been fully cleared.")
-        elif 'does not exist' in str(e).lower():
-            print("\nError: Table or relation missing. Migrations may not have run correctly.")
-        
         return False
 
 def verify_import():
