@@ -44,22 +44,56 @@ if [ -n "$DATABASE_URL" ]; then
     echo ">>> Testing Django import..."
     python3 -c "import django; print(f'Django version: {django.get_version()}')" 2>&1 || echo "ERROR: Django import failed"
     
-    echo ">>> Executing railway_setup.py (direct initialization script)..."
-    echo ">>> Command starting at $(date)..."
-    set +e
-    python3 -u railway_setup.py 2>&1
-    INIT_EXIT_CODE=$?
-    set -e
-    
-    echo ">>> Command finished at $(date) with exit code: $INIT_EXIT_CODE"
-    
-    echo ">>> railway_setup.py exit code: $INIT_EXIT_CODE"
-    
-    if [ $INIT_EXIT_CODE -ne 0 ]; then
-        echo "❌ Initialization failed with exit code $INIT_EXIT_CODE"
-        echo "Attempting to continue anyway..."
+    # Check if we should import data from SQLite dump
+    if [ -f "full_database_dump.json" ] && [ ! -f ".railway_import_complete" ]; then
+        echo ">>> Found full_database_dump.json - importing SQLite data..."
+        echo ">>> This will replace all PostgreSQL data with SQLite data"
+        
+        # Set confirmation flag for non-interactive import
+        export RAILWAY_IMPORT_CONFIRMED=true
+        
+        set +e
+        python3 -u railway_import_data.py 2>&1
+        IMPORT_EXIT_CODE=$?
+        set -e
+        
+        if [ $IMPORT_EXIT_CODE -eq 0 ]; then
+            echo "✓ SQLite data imported successfully"
+            echo "Skipping railway_setup.py (data already loaded)"
+        else
+            echo "❌ Data import failed with exit code $IMPORT_EXIT_CODE"
+            echo "Falling back to railway_setup.py..."
+            
+            set +e
+            python3 -u railway_setup.py 2>&1
+            INIT_EXIT_CODE=$?
+            set -e
+        fi
     else
-        echo "✓ Initialization successful"
+        if [ -f ".railway_import_complete" ]; then
+            echo ">>> Import already completed (.railway_import_complete found)"
+            echo ">>> Skipping data import and railway_setup.py"
+            echo ">>> To re-import, delete .railway_import_complete and redeploy"
+        else
+            echo ">>> No database dump found - running standard setup..."
+            echo ">>> Executing railway_setup.py (direct initialization script)..."
+            echo ">>> Command starting at $(date)..."
+            set +e
+            python3 -u railway_setup.py 2>&1
+            INIT_EXIT_CODE=$?
+            set -e
+            
+            echo ">>> Command finished at $(date) with exit code: $INIT_EXIT_CODE"
+            
+            echo ">>> railway_setup.py exit code: $INIT_EXIT_CODE"
+            
+            if [ $INIT_EXIT_CODE -ne 0 ]; then
+                echo "❌ Initialization failed with exit code $INIT_EXIT_CODE"
+                echo "Attempting to continue anyway..."
+            else
+                echo "✓ Initialization successful"
+            fi
+        fi
     fi
     
     # Verify all tables exist, create if missing
