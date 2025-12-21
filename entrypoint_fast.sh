@@ -4,6 +4,10 @@ set -e
 # Force unbuffered output
 export PYTHONUNBUFFERED=1
 
+# Also capture all runtime output to a persistent file for post-mortem debugging
+# This writes both stdout and stderr to /app/deploy_debug.log while preserving console output
+exec > >(tee -a /app/deploy_debug.log) 2>&1
+
 echo "=== FAST RAILWAY DEPLOYMENT ==="
 echo "Target: <15 minutes total"
 echo ""
