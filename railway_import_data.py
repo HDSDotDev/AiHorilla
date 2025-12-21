@@ -142,6 +142,24 @@ def import_data(dump_file):
                 # Set PK if present
                 if "pk" in obj:
                     fields[model._meta.pk.name] = obj["pk"]
+
+                # Truncate string fields to field.max_length to avoid DB errors
+                truncated = 0
+                for fname, fval in list(fields.items()):
+                    if isinstance(fval, str):
+                        try:
+                            field_obj = model._meta.get_field(fname)
+                        except Exception:
+                            field_obj = None
+                        if field_obj is not None and getattr(field_obj, 'max_length', None):
+                            maxlen = field_obj.max_length
+                            if maxlen and len(fval) > maxlen:
+                                fields[fname] = fval[:maxlen]
+                                truncated += 1
+
+                if truncated:
+                    print(f"    ⚠️  Truncated {truncated} field(s) on {model_label} record {i} to fit DB max_length")
+
                 to_create.append(model(**fields))
                 if len(to_create) >= BATCH_SIZE:
                     try:

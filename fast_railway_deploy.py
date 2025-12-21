@@ -363,15 +363,23 @@ if dump_file.exists() and not completion_flag.exists():
         print(f"    - Clearing existing data...")
         call_command('flush', '--noinput', verbosity=0)
         
-        # Import the data
-        print(f"    - Loading {dump_file.name}...")
-        print(f"    - This may take 5-10 minutes...")
+        # Import the data using the robust batch importer
+        print(f"    - Loading {dump_file.name} with batch importer...")
+        print(f"    - This may take 5-20 minutes depending on dataset size...")
         import_start = time.time()
-        call_command('loaddata', str(dump_file), verbosity=1)
+        try:
+            import railway_import_data
+            success = railway_import_data.main()
+        except Exception as e:
+            success = False
+            print(f"    ✗ Batch importer raised an exception: {e}")
+            import traceback
+            traceback.print_exc()
         import_duration = time.time() - import_start
-        
-        # Create completion flag
-        completion_flag.write_text(f"Import completed at {time.ctime()}\nDuration: {import_duration:.1f}s\n")
+
+        # Create completion flag only on success
+        if success:
+            completion_flag.write_text(f"Import completed at {time.ctime()}\nDuration: {import_duration:.1f}s\n")
         
         # Verify import
         from django.contrib.auth.models import User
