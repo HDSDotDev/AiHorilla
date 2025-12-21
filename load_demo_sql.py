@@ -82,15 +82,31 @@ def load_minimal_demo_data():
             RETURNING id;
         """)
         company_result = cur.fetchone()
-        if company_result:
+        if company_result and company_result[0]:
             company_id = company_result[0]
             print(f"  ✓ Company created (ID: {company_id})")
         else:
-            cur.execute("SELECT id FROM base_company WHERE company='BizBloqs Philippines'")
+            # Try to find existing company row first
+            cur.execute("SELECT id FROM base_company WHERE company='BizBloqs Philippines' LIMIT 1")
             result = cur.fetchone()
-            if result:
+            if result and result[0]:
                 company_id = result[0]
                 print(f"  ✓ Company exists (ID: {company_id})")
+            else:
+                # As a last resort, create the company and return its id
+                cur.execute("""
+                    INSERT INTO base_company (company, address, country, state, city, zip, 
+                                              icon, is_active, hq)
+                    VALUES ('BizBloqs Philippines', 'Manila, Philippines', 'Philippines', 
+                            'Metro Manila', 'Manila', '1000', '', true, false)
+                    RETURNING id;
+                """)
+                created = cur.fetchone()
+                if created and created[0]:
+                    company_id = created[0]
+                    print(f"  ✓ Company created (ID: {company_id})")
+                else:
+                    raise Exception("Failed to create or locate company 'BizBloqs Philippines'.")
         
         # Create admin employee record
         print("  - Creating admin employee record...")
