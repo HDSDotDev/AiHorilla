@@ -356,26 +356,28 @@ if dump_file.exists() and not completion_flag.exists():
     print(f"  ⚠️  This will REPLACE all current data in PostgreSQL!")
     
     try:
-        # Set confirmation flag for non-interactive import
-        os.environ['RAILWAY_IMPORT_CONFIRMED'] = 'true'
-        
-        # Flush existing data
-        print(f"    - Clearing existing data...")
-        call_command('flush', '--noinput', verbosity=0)
-        
-        # Import the data using the robust batch importer
-        print(f"    - Loading {dump_file.name} with batch importer...")
-        print(f"    - This may take 5-20 minutes depending on dataset size...")
-        import_start = time.time()
-        try:
-            import railway_import_data
-            success = railway_import_data.main()
-        except Exception as e:
+        # Require explicit confirmation to import to avoid automatic demo-data loading
+        confirmed = os.environ.get('RAILWAY_IMPORT_CONFIRMED') == 'true'
+        if not confirmed:
+            print("    - Dump file present but import NOT confirmed.")
+            print("      To import automatically, set environment variable RAILWAY_IMPORT_CONFIRMED=true")
+            print("      Or trigger the application's 'Load demo data' UI which will run the import manually.")
             success = False
-            print(f"    ✗ Batch importer raised an exception: {e}")
-            import traceback
-            traceback.print_exc()
-        import_duration = time.time() - import_start
+            import_duration = 0.0
+        else:
+            # Import the data using the robust batch importer (import module will run migrations/flush)
+            print(f"    - Loading {dump_file.name} with batch importer...")
+            print(f"    - This may take 5-20 minutes depending on dataset size...")
+            import_start = time.time()
+            try:
+                import railway_import_data
+                success = railway_import_data.main()
+            except Exception as e:
+                success = False
+                print(f"    ✗ Batch importer raised an exception: {e}")
+                import traceback
+                traceback.print_exc()
+            import_duration = time.time() - import_start
 
         # Create completion flag only on success
         if success:
