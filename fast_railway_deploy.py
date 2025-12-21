@@ -383,10 +383,14 @@ if dump_file.exists() and not completion_flag.exists():
         
         # Verify import
         from django.contrib.auth.models import User
-        from base.models import Company, Employee as BaseEmployee
+        try:
+            from base.models import Company, Employee as BaseEmployee
+        except Exception:
+            Company = None
+            BaseEmployee = None
         try:
             from employee.models import Employee
-        except:
+        except Exception:
             Employee = BaseEmployee
         
         user_count = User.objects.count()

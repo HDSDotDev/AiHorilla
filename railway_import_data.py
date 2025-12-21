@@ -128,6 +128,9 @@ def import_data(dump_file):
         for obj in data:
             model_map[obj["model"]].append(obj)
         print(f"Found {len(model_map)} models in dump.")
+        from collections import defaultdict as _dd
+        m2m_queues = _dd(list)
+
         for model_label, objects in model_map.items():
             app_label, model_name = model_label.split(".")
             model = apps.get_model(app_label, model_name)
@@ -142,6 +145,13 @@ def import_data(dump_file):
                 # Set PK if present
                 if "pk" in obj:
                     fields[model._meta.pk.name] = obj["pk"]
+
+                # Extract many-to-many fields and queue them to apply after insert
+                m2m_data = {}
+                for m2m_field in model._meta.many_to_many:
+                    fname = m2m_field.name
+                    if fname in fields:
+                        m2m_data[fname] = fields.pop(fname)
 
                 # Truncate string fields to field.max_length to avoid DB errors
                 truncated = 0
@@ -161,6 +171,11 @@ def import_data(dump_file):
                     print(f"    ⚠️  Truncated {truncated} field(s) on {model_label} record {i} to fit DB max_length")
 
                 to_create.append(model(**fields))
+
+                # record queued m2m relations for this object by PK (if any)
+                if m2m_data:
+                    pk_val = fields.get(model._meta.pk.name) if model._meta.pk.name in fields else obj.get('pk')
+                    m2m_queues[model_label].append((pk_val, m2m_data))
                 if len(to_create) >= BATCH_SIZE:
                     try:
                         with transaction.atomic():
@@ -177,6 +192,24 @@ def import_data(dump_file):
                     print(f"    Imported {len(objects)}/{len(objects)} records (final batch).")
                 except Exception as e:
                     print(f"    ❌ Error importing final batch: {e}")
+
+            # Apply any many-to-many relations queued for this model
+            if m2m_queues.get(model_label):
+                print(f"    Applying many-to-many relations for {model_label} ({len(m2m_queues[model_label])} entries)...")
+                for pk_val, m2m_fields in m2m_queues[model_label]:
+                    try:
+                        if pk_val is None:
+                            continue
+                        instance = model.objects.filter(pk=pk_val).first()
+                        if not instance:
+                            continue
+                        for fname, vals in m2m_fields.items():
+                            try:
+                                getattr(instance, fname).set(vals)
+                            except Exception as e:
+                                print(f"      ⚠️  Could not set m2m {fname} on {model_label} pk={pk_val}: {e}")
+                    except Exception as e:
+                        print(f"      ⚠️  Error applying m2m for pk={pk_val}: {e}")
         print("\n✅ Data imported successfully (batch mode)!")
         return True
     except Exception as e:
