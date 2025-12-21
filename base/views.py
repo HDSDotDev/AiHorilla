@@ -250,28 +250,40 @@ def load_demo_database(request):
                     logger = logging.getLogger(__name__)
                     project_root = Path(settings.BASE_DIR)
                     
-                    # Use the comprehensive ORM-based Philippines demo loader for all environments.
-                    # This ensures PostgreSQL receives the same complete demo dataset as the
-                    # SQLite path (parity between local and Railway deployments).
-                    logger.info("Using ORM-based Philippines comprehensive loader for demo data")
-                    print("[DEMO LOADER] Using comprehensive Philippines demo loader (ORM)", flush=True)
-                    loader_script = project_root / 'load_philippines_demo.py'
-                    import sys
-                    python_cmd = sys.executable
+                    # Choose loader based on database vendor.
+                    # For PostgreSQL (Railway) we run the JSON batch importer to replicate
+                    # the local SQLite dump exactly. For local/SQLite, run the ORM Philippines
+                    # demo generator.
+                    if connection.vendor == 'postgresql':
+                        logger.info("PostgreSQL detected - using JSON batch importer to replicate SQLite data")
+                        print("[DEMO LOADER] PostgreSQL: Using JSON batch importer to replicate SQLite data", flush=True)
+                        loader_script = project_root / 'railway_import_data.py'
+                        import sys
+                        python_cmd = sys.executable
+                        # Ensure the importer runs non-interactively for the UI trigger
+                        env = os.environ.copy()
+                        env['RAILWAY_IMPORT_CONFIRMED'] = 'true'
+                        env['FORCE_REIMPORT'] = 'true'
+                    else:
+                        logger.info(f"{connection.vendor} detected - using ORM-based Philippines demo loader...")
+                        print(f"[DEMO LOADER] {connection.vendor}: Using comprehensive Philippines demo loader", flush=True)
+                        loader_script = project_root / 'load_philippines_demo.py'
+                        import sys
+                        python_cmd = sys.executable
+                        env = os.environ.copy()
                     
                     if not loader_script.exists():
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
-                    
-                    # Run the appropriate loader
-                    import os
-                    env = os.environ.copy()
+
+                    # Run the appropriate loader script in a subprocess. For PostgreSQL
+                    # we set confirmation env vars so the batch importer runs non-interactively.
                     result = subprocess.run(
                         [python_cmd, str(loader_script)],
                         cwd=str(project_root),
                         env=env,
                         capture_output=True,
                         text=True,
-                        timeout=300  # 5 minutes for comprehensive data
+                        timeout=1800  # up to 30 minutes for large imports
                     )
                     
                     # Log output

@@ -18,10 +18,6 @@ os.environ['SKIP_DB_INIT_IN_READY'] = '1'
 os.environ['HORILLA_SKIP_SIGNALS'] = '1'
 os.environ['RAILWAY_ENVIRONMENT'] = '1'
 os.environ['PYTHONUNBUFFERED'] = '1'
-# TEMPORARY: force confirmed import and allow re-import for this deploy per user request
-# WARNING: This will wipe PostgreSQL and re-import data from full_database_dump.json
-os.environ['RAILWAY_IMPORT_CONFIRMED'] = 'true'
-os.environ['FORCE_REIMPORT'] = 'true'
 
 print("=" * 80)
 print("FAST RAILWAY DEPLOYMENT")
