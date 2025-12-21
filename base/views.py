@@ -250,21 +250,14 @@ def load_demo_database(request):
                     logger = logging.getLogger(__name__)
                     project_root = Path(settings.BASE_DIR)
                     
-                    # Detect database type and choose appropriate loader
-                    if connection.vendor == 'postgresql':
-                        # PostgreSQL: Use SQL-based loader (fast, bypasses ORM)
-                        logger.info("PostgreSQL detected - using SQL-based loader...")
-                        print("[DEMO LOADER] PostgreSQL: Using SQL-based loader for speed", flush=True)
-                        loader_script = project_root / 'load_demo_sql.py'
-                        python_cmd = 'python3'
-                    else:
-                        # SQLite/other: Use ORM-based comprehensive loader
-                        logger.info(f"{connection.vendor} detected - using ORM-based loader...")
-                        print(f"[DEMO LOADER] {connection.vendor}: Using comprehensive Philippines demo loader", flush=True)
-                        loader_script = project_root / 'load_philippines_demo.py'
-                        # Use python or python3 depending on OS
-                        import sys
-                        python_cmd = sys.executable
+                    # Use the comprehensive ORM-based Philippines demo loader for all environments.
+                    # This ensures PostgreSQL receives the same complete demo dataset as the
+                    # SQLite path (parity between local and Railway deployments).
+                    logger.info("Using ORM-based Philippines comprehensive loader for demo data")
+                    print("[DEMO LOADER] Using comprehensive Philippines demo loader (ORM)", flush=True)
+                    loader_script = project_root / 'load_philippines_demo.py'
+                    import sys
+                    python_cmd = sys.executable
                     
                     if not loader_script.exists():
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
