@@ -134,13 +134,38 @@ def import_data(dump_file):
         from django.db import models as _djmodels
 
         def _resolve_fk_value(val, related_model):
+            """
+            Resolve a foreign-key-like identifier to a PK.
+            Accepts numeric IDs, single-element lists, and common natural-key strings.
+            Special-cases ContentType natural-key tuples (app_label, model).
+            Returns integer PK or None.
+            """
             if val is None:
                 return None
-            # numeric primary key
+
+            # Handle list/tuple natural-key wrappers (dumpdata sometimes stores as ["x"])
+            if isinstance(val, (list, tuple)):
+                if len(val) == 0:
+                    return None
+                if len(val) == 1:
+                    val = val[0]
+                else:
+                    # Possibly a ContentType natural key (app_label, model)
+                    try:
+                        from django.contrib.contenttypes.models import ContentType
+                        if related_model is ContentType:
+                            ct = ContentType.objects.get_by_natural_key(val[0], val[1])
+                            return ct.pk
+                    except Exception:
+                        pass
+                    # fall through and try other heuristics
+
+            # numeric primary key (string of digits or actual int)
             try:
                 return int(val)
             except Exception:
                 pass
+
             # try to find instance by common unique fields
             common = ['username', 'code', 'slug', 'email', 'name']
             for field_name in common:
@@ -182,21 +207,34 @@ def import_data(dump_file):
                 for field_obj in model._meta.fields:
                     fname = field_obj.name
                     if getattr(field_obj, 'remote_field', None) and not getattr(field_obj, 'many_to_many', False):
-                        if fname in fields:
-                            val = fields[fname]
+                        # Accept either the field name (e.g., 'company') or the attname (e.g., 'company_id')
+                        attname = getattr(field_obj, 'attname', fname)
+                        if fname in fields or attname in fields:
+                            # Prefer explicit attname if present
+                            if attname in fields:
+                                val = fields.pop(attname)
+                            else:
+                                val = fields.pop(fname)
+
                             if val is None:
+                                # leave as None (will rely on DB constraints)
+                                fields[attname] = None
                                 continue
-                            # if already a number, skip
-                            if isinstance(val, int):
-                                continue
-                            related_model = field_obj.remote_field.model
-                            resolved = _resolve_fk_value(val, related_model)
+
+                            # If the value is a list/tuple or non-numeric, attempt to resolve to PK
+                            resolved = None
+                            if isinstance(val, (int,)):
+                                resolved = int(val)
+                            else:
+                                resolved = _resolve_fk_value(val, field_obj.remote_field.model)
+
                             if resolved is not None:
-                                fields[fname] = resolved
+                                # Assign to the attname (e.g., company_id) so Django accepts integer PKs
+                                fields[attname] = resolved
                             else:
                                 # unresolved reference -> set None and log
                                 print(f"    ⚠️  Could not resolve FK {fname}='{val}' for {model_label} record {i}; setting NULL")
-                                fields[fname] = None
+                                fields[attname] = None
 
                 # Truncate string fields to field.max_length to avoid DB errors
                 truncated = 0
