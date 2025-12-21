@@ -394,8 +394,8 @@ if dump_file.exists() and not completion_flag.exists():
             Employee = BaseEmployee
         
         user_count = User.objects.count()
-        company_count = Company.objects.count()
-        employee_count = Employee.objects.count()
+        company_count = Company.objects.count() if Company is not None else 0
+        employee_count = Employee.objects.count() if Employee is not None else 0
         
         print(f"  ✓ Import complete ({import_duration:.1f}s)")
         print(f"    - {user_count} users imported")

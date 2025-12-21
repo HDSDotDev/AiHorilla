@@ -131,6 +131,28 @@ def import_data(dump_file):
         from collections import defaultdict as _dd
         m2m_queues = _dd(list)
 
+        from django.db import models as _djmodels
+
+        def _resolve_fk_value(val, related_model):
+            if val is None:
+                return None
+            # numeric primary key
+            try:
+                return int(val)
+            except Exception:
+                pass
+            # try to find instance by common unique fields
+            common = ['username', 'code', 'slug', 'email', 'name']
+            for field_name in common:
+                try:
+                    related_model._meta.get_field(field_name)
+                except Exception:
+                    continue
+                inst = related_model.objects.filter(**{field_name: val}).first()
+                if inst:
+                    return inst.pk
+            return None
+
         for model_label, objects in model_map.items():
             app_label, model_name = model_label.split(".")
             model = apps.get_model(app_label, model_name)
@@ -152,6 +174,29 @@ def import_data(dump_file):
                     fname = m2m_field.name
                     if fname in fields:
                         m2m_data[fname] = fields.pop(fname)
+
+                # Resolve foreign keys to PKs and extract many-to-many fields
+                from django.db import models
+
+                # Resolve FK fields (non-m2m) to PKs when values are non-numeric/natural keys
+                for field_obj in model._meta.fields:
+                    fname = field_obj.name
+                    if getattr(field_obj, 'remote_field', None) and not getattr(field_obj, 'many_to_many', False):
+                        if fname in fields:
+                            val = fields[fname]
+                            if val is None:
+                                continue
+                            # if already a number, skip
+                            if isinstance(val, int):
+                                continue
+                            related_model = field_obj.remote_field.model
+                            resolved = _resolve_fk_value(val, related_model)
+                            if resolved is not None:
+                                fields[fname] = resolved
+                            else:
+                                # unresolved reference -> set None and log
+                                print(f"    ⚠️  Could not resolve FK {fname}='{val}' for {model_label} record {i}; setting NULL")
+                                fields[fname] = None
 
                 # Truncate string fields to field.max_length to avoid DB errors
                 truncated = 0
@@ -205,7 +250,37 @@ def import_data(dump_file):
                             continue
                         for fname, vals in m2m_fields.items():
                             try:
-                                getattr(instance, fname).set(vals)
+                                # resolve m2m member identifiers to PKs when necessary
+                                rel_field = getattr(model, fname).field if hasattr(getattr(model, fname), 'field') else None
+                                related_model = None
+                                try:
+                                    related_model = model._meta.get_field(fname).remote_field.model
+                                except Exception:
+                                    related_model = None
+
+                                resolved_vals = []
+                                if isinstance(vals, list):
+                                    for v in vals:
+                                        if isinstance(v, int):
+                                            resolved_vals.append(v)
+                                            continue
+                                        if related_model:
+                                            rv = _resolve_fk_value(v, related_model)
+                                            if rv is not None:
+                                                resolved_vals.append(rv)
+                                else:
+                                    # single value
+                                    if isinstance(vals, int):
+                                        resolved_vals = [vals]
+                                    elif related_model:
+                                        rv = _resolve_fk_value(vals, related_model)
+                                        if rv is not None:
+                                            resolved_vals = [rv]
+
+                                if resolved_vals:
+                                    getattr(instance, fname).set(resolved_vals)
+                                else:
+                                    getattr(instance, fname).clear()
                             except Exception as e:
                                 print(f"      ⚠️  Could not set m2m {fname} on {model_label} pk={pk_val}: {e}")
                     except Exception as e:
