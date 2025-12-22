@@ -356,11 +356,15 @@ if dump_file.exists() and not completion_flag.exists():
     print(f"  ⚠️  This will REPLACE all current data in PostgreSQL!")
     
     try:
-        # Require explicit confirmation to import to avoid automatic demo-data loading
+        # Require explicit double-confirmation to import during deploy to avoid accidental runs.
+        # Legacy behavior allowed a single env var to trigger imports; make it opt-in.
         confirmed = os.environ.get('RAILWAY_IMPORT_CONFIRMED') == 'true'
-        if not confirmed:
-            print("    - Dump file present but import NOT confirmed.")
-            print("      To import automatically, set environment variable RAILWAY_IMPORT_CONFIRMED=true")
+        run_during_deploy = os.environ.get('RAILWAY_RUN_IMPORT_DURING_DEPLOY') == 'true'
+
+        if not (confirmed and run_during_deploy):
+            print("    - Dump file present but import NOT confirmed for automatic deploy-time import.")
+            print("      To import automatically during deployment, set both:")
+            print("        RAILWAY_IMPORT_CONFIRMED=true and RAILWAY_RUN_IMPORT_DURING_DEPLOY=true")
             print("      Or trigger the application's 'Load demo data' UI which will run the import manually.")
             success = False
             import_duration = 0.0
