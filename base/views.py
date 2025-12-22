@@ -314,6 +314,12 @@ def load_demo_database(request):
                         logger.error(f"Demo data loading failed to start: {error_details}")
                         print(f"[ERROR] Could not start demo loader:\n{error_details}", flush=True)
                         messages.error(request, f"Error starting demo import: {str(e)}")
+                except Exception as e:
+                    import traceback
+                    error_details = traceback.format_exc()
+                    logger.error(f"Demo data loading failed: {error_details}")
+                    print(f"[ERROR] Demo data loading failed:\n{error_details}", flush=True)
+                    messages.error(request, f"Error: {str(e)}")
             else:
                 messages.error(request, _("Database Authentication Failed"))
         return redirect("/login/")
