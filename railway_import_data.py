@@ -93,13 +93,16 @@ def clear_database():
         print("✅ Auto-confirmed via RAILWAY_IMPORT_CONFIRMED environment variable")
     
     try:
-        print("\nRunning migrations first...")
-        call_command('migrate', '--noinput', verbosity=1)
-        
-        print("\nFlushing database...")
+        # Flush existing data first to avoid FK conflicts during migrate/post_migrate
+        # (some environments contain stale permission/contenttype rows that cause
+        # migrations to fail when Django attempts to create permissions).
+        print("\nFlushing database (remove existing rows)...")
         call_command('flush', '--noinput', verbosity=1)
-        
-        print("✅ Database cleared")
+
+        print("\nRunning migrations to recreate schema and core rows...")
+        call_command('migrate', '--noinput', verbosity=1)
+
+        print("✅ Database cleared and migrations applied")
         return True
         
     except Exception as e:
@@ -128,6 +131,16 @@ def import_data(dump_file):
         for obj in data:
             model_map[obj["model"]].append(obj)
         print(f"Found {len(model_map)} models in dump.")
+        # Ensure content types import first to satisfy FK from auth.Permission
+        prioritized = []
+        if 'contenttypes.contenttype' in model_map:
+            prioritized.append('contenttypes.contenttype')
+        if 'auth.permission' in model_map:
+            # defer auth.permission until after contenttypes
+            pass
+        # iterate prioritized first, then the rest
+        ordered_models = prioritized + [k for k in model_map.keys() if k not in prioritized]
+        # rebuild model_map iteration order using ordered_models
         from collections import defaultdict as _dd
         m2m_queues = _dd(list)
 
@@ -178,7 +191,8 @@ def import_data(dump_file):
                     return inst.pk
             return None
 
-        for model_label, objects in model_map.items():
+        for model_label in ordered_models:
+            objects = model_map.get(model_label, [])
             app_label, model_name = model_label.split(".")
             model = apps.get_model(app_label, model_name)
             if not model:
