@@ -275,70 +275,45 @@ def load_demo_database(request):
                     if not loader_script.exists():
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
 
-                    # Run the appropriate loader script in a subprocess. For PostgreSQL
-                    # we set confirmation env vars so the batch importer runs non-interactively.
-                    result = subprocess.run(
-                        [python_cmd, str(loader_script)],
-                        cwd=str(project_root),
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        timeout=1800  # up to 30 minutes for large imports
-                    )
-                    
-                    # Log output
-                    print(f"[DEMO LOADER] Output:\n{result.stdout}", flush=True)
-                    if result.stderr:
-                        print(f"[DEMO LOADER] Errors:\n{result.stderr}", flush=True)
-                    
-                    if result.returncode == 0:
-                        logger.info("Demo data loaded successfully!")
-                        
-                        # Auto-login as admin user after demo data load
-                        from django.contrib.auth import login
-                        try:
-                            admin_user = User.objects.get(username='admin')
-                            login(request, admin_user, backend='django.contrib.auth.backends.ModelBackend')
-                            logger.info("Auto-logged in as admin user")
-                            
-                            # Different messages for different loaders
-                            if connection.vendor == 'postgresql':
-                                messages.success(
-                                    request, 
-                                    _("Demo data loaded successfully! "
-                                      "Welcome to the demo environment with sample company, departments, and employees.")
-                                )
-                            else:
-                                messages.success(
-                                    request, 
-                                    _("Comprehensive Philippines demo data loaded! "
-                                      "Explore: Employees, Attendance, Leave Requests, Shift Requests, "
-                                      "Overtime Approvals, Assets, Helpdesk Tickets, and Payroll.")
-                                )
-                            # Redirect to home after successful login
-                            return redirect(home)
-                        except User.DoesNotExist:
-                            logger.error("Admin user not found after demo data load")
-                            messages.error(request, _("Demo data loaded but admin user not found. Please login manually."))
-                    else:
-                        logger.error(f"Demo data loading failed with exit code {result.returncode}")
-                        messages.error(
-                            request, 
-                            _("Failed to load demo data. Check server logs for details.")
+                    # Start the loader script as a background process so the HTTP request
+                    # doesn't block (the deployment request times out at ~60s). We write
+                    # logs to a file and record a small status file with the PID.
+                    try:
+                        logs_dir = project_root / 'import_logs'
+                        logs_dir.mkdir(exist_ok=True)
+                        import_time = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+                        out_path = logs_dir / f"import_{import_time}.out.log"
+                        err_path = logs_dir / f"import_{import_time}.err.log"
+
+                        out_fh = open(out_path, 'w', encoding='utf-8')
+                        err_fh = open(err_path, 'w', encoding='utf-8')
+
+                        # Start subprocess detached from request; do not wait.
+                        p = subprocess.Popen(
+                            [python_cmd, str(loader_script)],
+                            cwd=str(project_root),
+                            env=env,
+                            stdout=out_fh,
+                            stderr=err_fh,
+                            start_new_session=True
                         )
-                        
-                except subprocess.TimeoutExpired:
-                    logger.error("Demo data loading timed out after 60 seconds")
-                    messages.error(request, _("Demo data loading timed out. Please try again."))
-                except FileNotFoundError as e:
-                    logger.error(f"Demo loader script not found: {e}")
-                    messages.error(request, _("Demo loader script not found. Please contact support."))
-                except Exception as e:
-                    import traceback
-                    error_details = traceback.format_exc()
-                    logger.error(f"Demo data loading failed: {error_details}")
-                    print(f"[ERROR] Demo data loading failed:\n{error_details}", flush=True)
-                    messages.error(request, f"Error: {str(e)}")
+
+                        # Write a simple status file with pid and log paths
+                        status_file = project_root / '.railway_import_running'
+                        status_file.write_text(f"pid={p.pid}\nout={out_path}\nerr={err_path}\nstarted={import_time}\n")
+
+                        logger.info(f"Started demo import (pid={p.pid}), logs: {out_path}")
+                        messages.success(request, _("Demo import started in background. It may take several minutes. Check server logs for progress."))
+                        return redirect(home)
+                    except FileNotFoundError as e:
+                        logger.error(f"Demo loader script not found: {e}")
+                        messages.error(request, _("Demo loader script not found. Please contact support."))
+                    except Exception as e:
+                        import traceback
+                        error_details = traceback.format_exc()
+                        logger.error(f"Demo data loading failed to start: {error_details}")
+                        print(f"[ERROR] Could not start demo loader:\n{error_details}", flush=True)
+                        messages.error(request, f"Error starting demo import: {str(e)}")
             else:
                 messages.error(request, _("Database Authentication Failed"))
         return redirect("/login/")
