@@ -255,15 +255,15 @@ def load_demo_database(request):
                     # the local SQLite dump exactly. For local/SQLite, run the ORM Philippines
                     # demo generator.
                     if connection.vendor == 'postgresql':
-                        logger.info("PostgreSQL detected - using JSON batch importer to replicate SQLite data")
-                        print("[DEMO LOADER] PostgreSQL: Using JSON batch importer to replicate SQLite data", flush=True)
-                        loader_script = project_root / 'railway_import_data.py'
+                        logger.info("PostgreSQL detected - using SQL-based demo loader for reliable import")
+                        print("[DEMO LOADER] PostgreSQL: Using SQL-based demo loader (load_demo_sql.py)", flush=True)
+                        # Use the SQL-based loader which performs direct, idempotent inserts
+                        # This bypasses ORM signals and the fragile JSON batch resolver used previously
+                        loader_script = project_root / 'load_demo_sql.py'
                         import sys
                         python_cmd = sys.executable
-                        # Ensure the importer runs non-interactively for the UI trigger
+                        # The SQL loader reads DATABASE_URL directly; preserve environment
                         env = os.environ.copy()
-                        env['RAILWAY_IMPORT_CONFIRMED'] = 'true'
-                        env['FORCE_REIMPORT'] = 'true'
                     else:
                         logger.info(f"{connection.vendor} detected - using ORM-based Philippines demo loader...")
                         print(f"[DEMO LOADER] {connection.vendor}: Using comprehensive Philippines demo loader", flush=True)
