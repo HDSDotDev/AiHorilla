@@ -224,15 +224,53 @@ def initialize_database_condition():
     Returns:
         bool: True if the database needs to be initialized, False otherwise.
     """
-    init_database = not User.objects.exists()
-    if not init_database:
-        init_database = True
-        superusers = User.objects.filter(is_superuser=True)
-        for user in superusers:
-            if hasattr(user, "employee_get"):
-                init_database = False
-                break
-    return init_database
+    from django.db import connection
+    from pathlib import Path
+    try:
+        init_database = not User.objects.exists()
+
+        # If users exist, require at least one superuser with an Employee relation
+        if not init_database:
+            init_database = True
+            superusers = User.objects.filter(is_superuser=True)
+            for user in superusers:
+                if hasattr(user, "employee_get"):
+                    init_database = False
+                    break
+
+        # Additional heuristic checks: if there are no companies or no employees,
+        # treat DB as uninitialized so the UI is shown (covers partial imports).
+        try:
+            from base.models import Company
+            from employee.models import Employee as EmpModel
+            if Company.objects.count() == 0 or EmpModel.objects.count() == 0:
+                init_database = True
+        except Exception:
+            # If models are missing or error occurs, be conservative and show init UI
+            init_database = True
+
+        # Check for critical payroll column presence (common migration addition).
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name='payroll_payrollcountryconfig' AND column_name='activated_by_id'")
+                if not cursor.fetchone():
+                    init_database = True
+        except Exception:
+            # If unable to query, default to showing init UI to avoid hiding controls
+            init_database = True
+
+        # If an import completion flag exists but DB appears incomplete, show init UI
+        try:
+            flag = Path(settings.BASE_DIR) / '.railway_import_complete'
+            if flag.exists() and init_database:
+                return True
+        except Exception:
+            pass
+
+        return init_database
+    except Exception:
+        # On any unexpected error, be conservative and show initialization UI
+        return True
 
 
 @ensure_csrf_cookie
