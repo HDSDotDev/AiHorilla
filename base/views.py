@@ -10,6 +10,7 @@ import os
 import threading
 import uuid
 from datetime import datetime, timedelta
+import time
 from email.mime.image import MIMEImage
 from os import path
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
@@ -324,7 +325,7 @@ def load_demo_database(request):
                     # logs to a file and record a small status file with the PID.
                     try:
                         logs_dir = project_root / 'import_logs'
-                        logs_dir.mkdir(exist_ok=True)
+                        logs_dir.mkdir(parents=True, exist_ok=True)
                         import_time = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
                         out_path = logs_dir / f"import_{import_time}.out.log"
                         err_path = logs_dir / f"import_{import_time}.err.log"
@@ -332,7 +333,7 @@ def load_demo_database(request):
                         out_fh = open(out_path, 'w', encoding='utf-8')
                         err_fh = open(err_path, 'w', encoding='utf-8')
 
-                        # Start subprocess detached from request; do not wait.
+                        # Start subprocess detached from request; do not wait long.
                         p = subprocess.Popen(
                             [python_cmd, str(loader_script)],
                             cwd=str(project_root),
@@ -342,9 +343,42 @@ def load_demo_database(request):
                             start_new_session=True
                         )
 
+                        # Close parent handles (child inherited descriptors remain valid).
+                        try:
+                            out_fh.close()
+                            err_fh.close()
+                        except Exception:
+                            pass
+
                         # Write a simple status file with pid and log paths
                         status_file = project_root / '.railway_import_running'
                         status_file.write_text(f"pid={p.pid}\nout={out_path}\nerr={err_path}\nstarted={import_time}\n")
+
+                        # Wait briefly to detect immediate failures (common in misconfigured envs).
+                        time_waited = 0.0
+                        poll_interval = 0.5
+                        max_wait = 5.0
+                        while time_waited < max_wait:
+                            if p.poll() is None:
+                                # process is running
+                                break
+                            # process has already exited; short sleep then re-check
+                            time.sleep(poll_interval)
+                            time_waited += poll_interval
+
+                        if p.poll() is not None:
+                            # Process exited quickly — collect stderr to show user
+                            try:
+                                # read a small tail of the err log to include in message
+                                if err_path.exists():
+                                    tail = err_path.read_text(10_000)
+                                else:
+                                    tail = ''
+                            except Exception:
+                                tail = ''
+                            logger.error(f"Demo import process exited immediately (pid={p.pid}). Stderr:\n{tail}")
+                            messages.error(request, _("Demo import failed to start. Check server logs for details."))
+                            return redirect(home)
 
                         logger.info(f"Started demo import (pid={p.pid}), logs: {out_path}")
                         messages.success(request, _("Demo import started in background. It may take several minutes. Check server logs for progress."))
