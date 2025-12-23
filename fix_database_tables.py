@@ -102,8 +102,16 @@ critical_tables = [
     'asset_asset',
     'asset_assetassignment',
     'attendance_attendance',
-    'helpdesk_ticket'
 ]
+
+# Only require helpdesk tables if the app is installed
+try:
+    from django.apps import apps as _apps_for_check
+    if _apps_for_check.is_installed('helpdesk'):
+        critical_tables.append('helpdesk_ticket')
+except Exception:
+    # If introspection fails here, we'll rely on later checks
+    pass
 
 print(f"\n=== Checking for {len(critical_tables)} Critical Tables ===")
 def existing_tables_set(cursor):

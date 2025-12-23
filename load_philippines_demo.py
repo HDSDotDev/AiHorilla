@@ -71,8 +71,27 @@ except Exception as e:
     print(f"Note: Could not disable auditlog: {e}")
 
 from django.contrib.auth.models import User
-from django.db import transaction
+from django.db import transaction, connection
 from django.apps import apps
+
+
+def table_exists(table_name: str) -> bool:
+    """Return True if the given DB table exists for the current connection.
+
+    Uses Django's introspection where available and falls back to a quick
+    `to_regclass` query for PostgreSQL. Exceptions are swallowed and False
+    is returned on error to avoid crashing the demo loader during startup.
+    """
+    try:
+        return table_name in connection.introspection.table_names()
+    except Exception:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT to_regclass(%s);", [table_name])
+                row = cursor.fetchone()
+                return bool(row and row[0])
+        except Exception:
+            return False
 
 # Core models
 from employee.models import Employee, EmployeeWorkInformation, EmployeeBankDetails
@@ -111,9 +130,11 @@ if apps.is_installed('asset'):
         AssetRequest, AssetLot
     )
 
-# Helpdesk models (if installed)
-if apps.is_installed('helpdesk'):
+# Helpdesk models (if installed and tables present)
+if apps.is_installed('helpdesk') and table_exists('helpdesk_ticket'):
     from helpdesk.models import Ticket, TicketType, FAQ
+else:
+    print("[DEMO LOADER] helpdesk app not installed or helpdesk tables missing; skipping helpdesk model imports")
 
 # Philippine Configuration
 COMPANY_NAME = "BizBloqs BV Philippines"
@@ -901,6 +922,10 @@ class PhilippinesComprehensiveDemo:
         """Create helpdesk tickets"""
         if not apps.is_installed('helpdesk'):
             self.log("Helpdesk module not installed - skipping", 'warn')
+            return
+        # Ensure the expected helpdesk tables exist before attempting ORM operations
+        if not table_exists('helpdesk_ticket') or not table_exists('helpdesk_tickettype'):
+            self.log("Helpdesk DB tables missing - skipping helpdesk demo data", 'warn')
             return
         
         self.header("Helpdesk Tickets")
