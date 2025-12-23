@@ -108,7 +108,10 @@ def write_completion_flag():
         pass
 
 def main():
-    num = int(sys.argv[1]) if len(sys.argv) > 1 else 40
+    # Default to 41 employees to mirror local/demo SQLite population
+    num = int(sys.argv[1]) if len(sys.argv) > 1 else 41
+    # Ensure deterministic seed to mirror local generator when possible
+    os.environ.setdefault('DEMO_DATA_SEED', os.environ.get('DEMO_DATA_SEED', '123456'))
     if not check_postgres():
         return 1
     # Acquire a Postgres advisory lock to prevent concurrent destructive imports

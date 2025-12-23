@@ -277,7 +277,9 @@ def initialize_database_condition():
 @ensure_csrf_cookie
 def load_demo_database(request):
     """Load comprehensive demo data (detects database type automatically)"""
-    if initialize_database_condition():
+    # Allow superusers to run demo import even when initialization UI is hidden
+    user_is_super = getattr(request, 'user', None) and getattr(request.user, 'is_superuser', False)
+    if initialize_database_condition() or (request.method == 'POST' and user_is_super):
         if request.method == "POST":
             if request.POST.get("load_data_password") == DB_INIT_PASSWORD:
                 try:
