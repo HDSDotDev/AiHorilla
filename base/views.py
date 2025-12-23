@@ -333,15 +333,28 @@ def load_demo_database(request):
                         out_fh = open(out_path, 'w', encoding='utf-8')
                         err_fh = open(err_path, 'w', encoding='utf-8')
 
+                        logger.info(f"Launching demo loader: script={loader_script} python={python_cmd} exists={loader_script.exists()} cwd={project_root}")
+
                         # Start subprocess detached from request; do not wait long.
-                        p = subprocess.Popen(
-                            [python_cmd, str(loader_script)],
-                            cwd=str(project_root),
-                            env=env,
-                            stdout=out_fh,
-                            stderr=err_fh,
-                            start_new_session=True
-                        )
+                        try:
+                            p = subprocess.Popen(
+                                [python_cmd, str(loader_script)],
+                                cwd=str(project_root),
+                                env=env,
+                                stdout=out_fh,
+                                stderr=err_fh,
+                                start_new_session=True
+                            )
+                        except Exception as e:
+                            # Ensure file handles are closed and report error
+                            try:
+                                out_fh.close()
+                                err_fh.close()
+                            except Exception:
+                                pass
+                            logger.error(f"Failed to start demo loader subprocess: {e}")
+                            messages.error(request, _("Demo import failed to start (subprocess error). Check server logs."))
+                            return redirect(home)
 
                         # Close parent handles (child inherited descriptors remain valid).
                         try:
