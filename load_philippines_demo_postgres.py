@@ -79,6 +79,56 @@ def clear_database_noninteractive():
         call_command('flush', '--noinput')
         call_command('migrate', '--noinput')
         print("[PH POSTGRES LOADER] Database flushed and migrations applied")
+        
+        # CRITICAL CHECK: Verify that critical tables exist after migration
+        from django.db import connection
+        critical_tables = ['employee_employee', 'base_company', 'recruitment_candidate']
+        missing_tables = []
+        with connection.cursor() as cursor:
+            for table in critical_tables:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = %s
+                    )
+                """, [table])
+                if not cursor.fetchone()[0]:
+                    missing_tables.append(table)
+        
+        if missing_tables:
+            print(f"❌ CRITICAL: Tables still missing after migrate: {missing_tables}")
+            print("🔥 NUCLEAR OPTION: Wiping database and starting fresh...")
+            
+            # Nuclear wipe like in fast_railway_deploy.py
+            with connection.cursor() as cursor:
+                cursor.execute("DROP SCHEMA public CASCADE")
+                cursor.execute("CREATE SCHEMA public")
+                cursor.execute("GRANT ALL ON SCHEMA public TO PUBLIC")
+                cursor.execute("GRANT ALL ON SCHEMA public TO postgres")
+            
+            print("✅ Database wiped, re-running migrations...")
+            call_command('migrate', '--noinput')
+            print("✅ Migrations completed after nuclear wipe")
+            
+            # Verify again
+            missing_tables = []
+            with connection.cursor() as cursor:
+                for table in critical_tables:
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = %s
+                        )
+                    """, [table])
+                    if not cursor.fetchone()[0]:
+                        missing_tables.append(table)
+            
+            if missing_tables:
+                print(f"❌ FATAL: Tables still missing after nuclear wipe: {missing_tables}")
+                return False
+            else:
+                print("✅ All critical tables exist after nuclear wipe")
+        
         return True
     except Exception as e:
         print(f"❌ Clearing database failed: {e}")
