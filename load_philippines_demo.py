@@ -21,6 +21,7 @@ import django
 from datetime import datetime, date, timedelta, time
 from decimal import Decimal
 import random
+import hashlib
 
 # Setup Django
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +35,29 @@ os.environ['SKIP_SCHEDULERS'] = '1'
 os.environ['DJANGO_DISABLE_AUDITLOG'] = '1'
 
 django.setup()
+
+# Deterministic seeding for demo data generation
+try:
+    seed_val = os.environ.get('DEMO_DATA_SEED')
+    if seed_val is not None:
+        try:
+            seed_int = int(seed_val)
+        except Exception:
+            # Fallback: hash the string into an int
+            seed_int = int(hashlib.sha256(seed_val.encode('utf-8')).hexdigest(), 16) % (2 ** 32)
+        random.seed(seed_int)
+        try:
+            import numpy as _np
+
+            _np.random.seed(seed_int)
+        except Exception:
+            # numpy not available — continue
+            pass
+        print(f"[DEMO LOADER] Using deterministic seed: {seed_int}")
+    else:
+        print("[DEMO LOADER] No DEMO_DATA_SEED provided — running non-deterministic generation")
+except Exception as e:
+    print(f"[DEMO LOADER] Seed initialization failed: {e}")
 
 # After django.setup(), completely disable auditlog by monkey-patching the receiver
 try:

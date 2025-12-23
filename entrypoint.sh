@@ -45,29 +45,52 @@ if [ -n "$DATABASE_URL" ]; then
     python3 -c "import django; print(f'Django version: {django.get_version()}')" 2>&1 || echo "ERROR: Django import failed"
     
     # Check if we should import data from SQLite dump
-    if [ -f "full_database_dump.json" ] && [ ! -f ".railway_import_complete" ]; then
-        echo ">>> Found full_database_dump.json - importing SQLite data..."
-        echo ">>> This will replace all PostgreSQL data with SQLite data"
-        
-        # Set confirmation flag for non-interactive import
-        export RAILWAY_IMPORT_CONFIRMED=true
-        
-        set +e
-        python3 -u railway_import_data.py 2>&1
-        IMPORT_EXIT_CODE=$?
-        set -e
-        
-        if [ $IMPORT_EXIT_CODE -eq 0 ]; then
-            echo "✓ SQLite data imported successfully"
-            echo "Skipping railway_setup.py (data already loaded)"
-        else
-            echo "❌ Data import failed with exit code $IMPORT_EXIT_CODE"
-            echo "Falling back to railway_setup.py..."
-            
+    # Opt-in: allow running the Postgres-targeted ORM generator during deploy
+    if [ "${USE_GENERATOR_FOR_INITIALISATION:-}" = "true" ]; then
+        echo ">>> USE_GENERATOR_FOR_INITIALISATION=true detected"
+        if [ "${RAILWAY_IMPORT_CONFIRMED:-}" = "true" ]; then
+            echo ">>> Running Postgres generator (will flush + migrate then populate)"
             set +e
-            python3 -u railway_setup.py 2>&1
-            INIT_EXIT_CODE=$?
+            python3 -u load_philippines_demo_postgres.py 2>&1
+            GEN_EXIT=$?
             set -e
+            if [ $GEN_EXIT -eq 0 ]; then
+                echo "✓ Postgres generator completed successfully"
+            else
+                echo "❌ Postgres generator failed with exit code $GEN_EXIT"
+            fi
+        else
+            echo ">>> RAILWAY_IMPORT_CONFIRMED not set — skipping Postgres generator"
+        fi
+    fi
+
+    if [ -f "full_database_dump.json" ] && [ ! -f ".railway_import_complete" ]; then
+        echo ">>> Found full_database_dump.json in image"
+        echo ">>> NOTE: Automatic import from committed dumps is disabled by default for safety."
+        echo ">>> To enable automatic import during deploy set RAILWAY_RUN_IMPORT_DURING_DEPLOY=true and RAILWAY_IMPORT_CONFIRMED=true"
+
+        # Only perform an automatic import when explicitly enabled via env vars
+        if [ "${RAILWAY_RUN_IMPORT_DURING_DEPLOY:-}" = "true" ] && [ "${RAILWAY_IMPORT_CONFIRMED:-}" = "true" ]; then
+            echo ">>> Auto-import enabled: importing SQLite data to PostgreSQL..."
+            set +e
+            python3 -u railway_import_data.py 2>&1
+            IMPORT_EXIT_CODE=$?
+            set -e
+
+            if [ $IMPORT_EXIT_CODE -eq 0 ]; then
+                echo "✓ SQLite data imported successfully"
+                echo "Skipping railway_setup.py (data already loaded)"
+            else
+                echo "❌ Data import failed with exit code $IMPORT_EXIT_CODE"
+                echo "Falling back to railway_setup.py..."
+                set +e
+                python3 -u railway_setup.py 2>&1
+                INIT_EXIT_CODE=$?
+                set -e
+            fi
+        else
+            echo ">>> Automatic import skipped (RAILWAY_RUN_IMPORT_DURING_DEPLOY or RAILWAY_IMPORT_CONFIRMED not set)"
+            echo ">>> To re-import manually, set these env vars or use the login UI to trigger import." 
         fi
     else
         if [ -f ".railway_import_complete" ]; then

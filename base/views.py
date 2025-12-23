@@ -304,6 +304,8 @@ def load_demo_database(request):
                         env = os.environ.copy()
                         env['SKIP_SCHEDULERS'] = '1'
                         env['DJANGO_DISABLE_AUDITLOG'] = '1'
+                        # Preserve any externally-provided seed, otherwise use a default
+                        env['DEMO_DATA_SEED'] = os.environ.get('DEMO_DATA_SEED', '123456')
                         env['RAILWAY_IMPORT_CONFIRMED'] = 'true'
                     else:
                         logger.info(f"{connection.vendor} detected - using ORM-based Philippines demo loader...")
@@ -312,6 +314,7 @@ def load_demo_database(request):
                         import sys
                         python_cmd = sys.executable
                         env = os.environ.copy()
+                        env['DEMO_DATA_SEED'] = os.environ.get('DEMO_DATA_SEED', '123456')
                     
                     if not loader_script.exists():
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")

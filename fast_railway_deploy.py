@@ -347,8 +347,10 @@ else:
 print("\n[5/7] Checking for database import...")
 step_start = time.time()
 from pathlib import Path
-dump_file = Path('/app/full_database_dump.json')
-completion_flag = Path('/app/.railway_import_complete')
+# Allow overriding locations via environment for consistency across scripts
+default_root = Path(__file__).parent
+dump_file = Path(os.environ.get('RAILWAY_DUMP_PATH', str(default_root / 'full_database_dump.json')))
+completion_flag = Path(os.environ.get('RAILWAY_IMPORT_FLAG_PATH', str(default_root / '.railway_import_complete')))
 
 if dump_file.exists() and not completion_flag.exists():
     print(f"  ✓ Found {dump_file.name} ({dump_file.stat().st_size / (1024*1024):.1f} MB)")
