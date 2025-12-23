@@ -356,62 +356,42 @@ def load_demo_database(request):
                         pass
 
                     # Start the loader script as a background process so the HTTP request
-                    # doesn't block (the deployment request times out at ~60s). We write
-                    # logs to a file and record a small status file with the PID.
+                    # doesn't block (the deployment request times out at ~60s). Output goes to app logs.
                     try:
-                        logs_dir = project_root / 'import_logs'
-                        logs_dir.mkdir(parents=True, exist_ok=True)
                         import_time = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-                        out_path = logs_dir / f"import_{import_time}.out.log"
-                        err_path = logs_dir / f"import_{import_time}.err.log"
-
-                        out_fh = open(out_path, 'w', encoding='utf-8')
-                        err_fh = open(err_path, 'w', encoding='utf-8')
 
                         logger.info(f"Launching demo loader: script={loader_script} python={python_cmd} exists={loader_script.exists()} cwd={project_root}")
                         print(f"[DEMO LOADER DEBUG] launching subprocess: {python_cmd} {loader_script}", flush=True)
 
                         # Start subprocess detached from request; do not wait long.
+                        # Redirect output to app logs so errors are visible in Railway logs
                         try:
                             p = subprocess.Popen(
                                 [python_cmd, str(loader_script)],
                                 cwd=str(project_root),
                                 env=env,
-                                stdout=out_fh,
-                                stderr=err_fh,
+                                # stdout=subprocess.PIPE,  # Remove redirection to send to app logs
+                                # stderr=subprocess.PIPE,
                                 start_new_session=True
                             )
                         except Exception as e:
-                            # Ensure file handles are closed and report error
-                            try:
-                                out_fh.close()
-                                err_fh.close()
-                            except Exception:
-                                pass
                             err_msg = f"Failed to start demo loader subprocess: {e}"
                             logger.error(err_msg)
                             print(f"[DEMO LOADER DEBUG] {err_msg}", flush=True)
                             messages.error(request, _("Demo import failed to start (subprocess error). Check server logs."))
                             return redirect(home)
 
-                        # Close parent handles (child inherited descriptors remain valid).
-                        try:
-                            out_fh.close()
-                            err_fh.close()
-                        except Exception:
-                            pass
-
                         # Write a simple status file with pid and log paths
                         status_file = project_root / '.railway_import_running'
-                        status_file.write_text(f"pid={p.pid}\nout={out_path}\nerr={err_path}\nstarted={import_time}\n")
+                        status_file.write_text(f"pid={p.pid}\nout=app_logs\nerr=app_logs\nstarted={import_time}\n")
 
                         # Also write a JSON status file for easier automated inspection
                         try:
                             status_json = project_root / '.railway_import_status.json'
                             status_content = {
                                 'pid': p.pid,
-                                'out': str(out_path),
-                                'err': str(err_path),
+                                'out': 'app_logs',
+                                'err': 'app_logs',
                                 'started': import_time,
                                 'state': 'started',
                             }
@@ -432,22 +412,14 @@ def load_demo_database(request):
                             time_waited += poll_interval
 
                         if p.poll() is not None:
-                            # Process exited quickly — collect stderr to show user
-                            try:
-                                # read a small tail of the err log to include in message
-                                if err_path.exists():
-                                    tail = err_path.read_text(10_000)
-                                else:
-                                    tail = ''
-                            except Exception:
-                                tail = ''
-                            err_msg = f"Demo import process exited immediately (pid={p.pid}). Stderr:\n{tail}"
+                            # Process exited quickly — report error
+                            err_msg = f"Demo import process exited immediately (pid={p.pid}). Check Railway logs for stderr output."
                             logger.error(err_msg)
                             print(f"[DEMO LOADER DEBUG] {err_msg}", flush=True)
                             messages.error(request, _("Demo import failed to start. Check server logs for details."))
                             return redirect(home)
 
-                        started_msg = f"Started demo import (pid={p.pid}), logs: {out_path}, status: {status_json}"
+                        started_msg = f"Started demo import (pid={p.pid}), output in Railway app logs, status: {status_json}"
                         logger.info(started_msg)
                         print(f"[DEMO LOADER DEBUG] {started_msg}", flush=True)
                         try:
