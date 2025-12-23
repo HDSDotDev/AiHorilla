@@ -354,68 +354,59 @@ completion_flag = Path(os.environ.get('RAILWAY_IMPORT_FLAG_PATH', str(default_ro
 
 if dump_file.exists() and not completion_flag.exists():
     print(f"  ✓ Found {dump_file.name} ({dump_file.stat().st_size / (1024*1024):.1f} MB)")
-    print(f"  → Importing SQLite data to PostgreSQL...")
-    print(f"  ⚠️  This will REPLACE all current data in PostgreSQL!")
-    
-    try:
-        # Require explicit double-confirmation to import during deploy to avoid accidental runs.
-        # Legacy behavior allowed a single env var to trigger imports; make it opt-in.
-        confirmed = os.environ.get('RAILWAY_IMPORT_CONFIRMED') == 'true'
-        run_during_deploy = os.environ.get('RAILWAY_RUN_IMPORT_DURING_DEPLOY') == 'true'
+    print(f"  → Dump present. By default, automatic import is DISABLED to avoid accidental data replacement.")
+    print(f"  ⚠️  This file will REPLACE all current data in PostgreSQL if imported.")
 
-        if not (confirmed and run_during_deploy):
-            print("    - Dump file present but import NOT confirmed for automatic deploy-time import.")
-            print("      To import automatically during deployment, set both:")
-            print("        RAILWAY_IMPORT_CONFIRMED=true and RAILWAY_RUN_IMPORT_DURING_DEPLOY=true")
-            print("      Or trigger the application's 'Load demo data' UI which will run the import manually.")
+    # Require BOTH environment flags to be set for automatic import during deploy
+    confirmed = os.environ.get('RAILWAY_IMPORT_CONFIRMED') == 'true'
+    run_during_deploy = os.environ.get('RAILWAY_RUN_IMPORT_DURING_DEPLOY') == 'true'
+
+    if not (confirmed and run_during_deploy):
+        print("    - Automatic import skipped (RAILWAY_RUN_IMPORT_DURING_DEPLOY or RAILWAY_IMPORT_CONFIRMED not set).")
+        print("      To import automatically during deployment, set both:")
+        print("        RAILWAY_IMPORT_CONFIRMED=true and RAILWAY_RUN_IMPORT_DURING_DEPLOY=true")
+        print("      Or trigger the application's 'Load demo data' UI which will run the import manually.")
+    else:
+        print(f"    - Auto-import enabled: loading {dump_file.name} with batch importer...")
+        print(f"    - This may take several minutes depending on dataset size...")
+        import_start = time.time()
+        try:
+            import railway_import_data
+            success = railway_import_data.main()
+        except Exception as e:
             success = False
-            import_duration = 0.0
-        else:
-            # Import the data using the robust batch importer (import module will run migrations/flush)
-            print(f"    - Loading {dump_file.name} with batch importer...")
-            print(f"    - This may take 5-20 minutes depending on dataset size...")
-            import_start = time.time()
-            try:
-                import railway_import_data
-                success = railway_import_data.main()
-            except Exception as e:
-                success = False
-                print(f"    ✗ Batch importer raised an exception: {e}")
-                import traceback
-                traceback.print_exc()
-            import_duration = time.time() - import_start
+            print(f"    ✗ Batch importer raised an exception: {e}")
+            import traceback
+            traceback.print_exc()
+        import_duration = time.time() - import_start
 
         # Create completion flag only on success
         if success:
             completion_flag.write_text(f"Import completed at {time.ctime()}\nDuration: {import_duration:.1f}s\n")
-        
-        # Verify import
-        from django.contrib.auth.models import User
-        try:
-            from base.models import Company, Employee as BaseEmployee
-        except Exception:
-            Company = None
-            BaseEmployee = None
-        try:
-            from employee.models import Employee
-        except Exception:
-            Employee = BaseEmployee
-        
-        user_count = User.objects.count()
-        company_count = Company.objects.count() if Company is not None else 0
-        employee_count = Employee.objects.count() if Employee is not None else 0
-        
-        print(f"  ✓ Import complete ({import_duration:.1f}s)")
-        print(f"    - {user_count} users imported")
-        print(f"    - {company_count} companies imported")
-        print(f"    - {employee_count} employees imported")
-        print(f"  ✓ Created {completion_flag.name} to prevent re-import")
-        
-    except Exception as e:
-        print(f"  ✗ Import failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print(f"  → Continuing with deployment...")
+
+            # Verify import counts only on success
+            from django.contrib.auth.models import User
+            try:
+                from base.models import Company, Employee as BaseEmployee
+            except Exception:
+                Company = None
+                BaseEmployee = None
+            try:
+                from employee.models import Employee
+            except Exception:
+                Employee = BaseEmployee
+
+            user_count = User.objects.count()
+            company_count = Company.objects.count() if Company is not None else 0
+            employee_count = Employee.objects.count() if Employee is not None else 0
+
+            print(f"  ✓ Import complete ({import_duration:.1f}s)")
+            print(f"    - {user_count} users imported")
+            print(f"    - {company_count} companies imported")
+            print(f"    - {employee_count} employees imported")
+            print(f"  ✓ Created {completion_flag.name} to prevent re-import")
+        else:
+            print(f"  ✗ Import failed or was cancelled; no completion flag written")
 elif completion_flag.exists():
     print(f"  ✓ Import already completed (found {completion_flag.name})")
     print(f"    To re-import: delete {completion_flag.name} and redeploy")
