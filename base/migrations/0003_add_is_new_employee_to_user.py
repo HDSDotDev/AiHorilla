@@ -11,10 +11,17 @@ def add_is_new_employee_field(apps, schema_editor):
     Compatible with both PostgreSQL and SQLite.
     """
     with connection.cursor() as cursor:
-        # Check if column already exists
-        cursor.execute("PRAGMA table_info(auth_user);")
-        columns = [row[1] for row in cursor.fetchall()]
-        
+        # Check if column already exists in a vendor-safe way
+        if connection.vendor == 'sqlite':
+            cursor.execute("PRAGMA table_info(auth_user);")
+            columns = [row[1] for row in cursor.fetchall()]
+        else:
+            # PostgreSQL and other DBs: query information_schema
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'auth_user';"
+            )
+            columns = [row[0] for row in cursor.fetchall()]
+
         if 'is_new_employee' not in columns:
             # SQLite doesn't support ALTER TABLE ADD COLUMN with DEFAULT for NOT NULL
             # So we add as nullable first, update, then make NOT NULL
