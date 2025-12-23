@@ -323,6 +323,36 @@ def load_demo_database(request):
                         print(f"[DEMO LOADER DEBUG] loader script missing: {loader_script}", flush=True)
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
 
+                    # Prevent concurrent imports: check JSON status and running PID
+                    try:
+                        status_json = project_root / '.railway_import_status.json'
+                        if status_json.exists():
+                            import json as _json, os as _os
+                            try:
+                                sj = _json.loads(status_json.read_text())
+                                existing_pid = int(sj.get('pid') or 0)
+                            except Exception:
+                                existing_pid = 0
+                            if existing_pid:
+                                # Check if process is alive
+                                try:
+                                    _os.kill(existing_pid, 0)
+                                    messages.warning(request, _("A demo import is already running (pid=%s). Wait for it to finish before starting a new one.") % existing_pid)
+                                    return redirect(home)
+                                except PermissionError:
+                                    # Process exists but we cannot signal it; assume running
+                                    messages.warning(request, _("A demo import is already running (pid=%s). Wait for it to finish before starting a new one.") % existing_pid)
+                                    return redirect(home)
+                                except ProcessLookupError:
+                                    # Stale PID; allow new import and remove stale status file
+                                    try:
+                                        status_json.unlink()
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        # If status check fails, continue to attempt starting import
+                        pass
+
                     # Start the loader script as a background process so the HTTP request
                     # doesn't block (the deployment request times out at ~60s). We write
                     # logs to a file and record a small status file with the PID.

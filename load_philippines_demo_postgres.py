@@ -43,6 +43,7 @@ except Exception:
 from django.core.management import call_command
 from django.conf import settings
 from django.db import connections
+from django.db import connection
 
 def check_postgres():
     db = settings.DATABASES.get('default', {})
@@ -110,9 +111,34 @@ def main():
     num = int(sys.argv[1]) if len(sys.argv) > 1 else 40
     if not check_postgres():
         return 1
+    # Acquire a Postgres advisory lock to prevent concurrent destructive imports
+    LOCK_KEY = 987654321
+    locked = False
+    try:
+        with connection.cursor() as cur:
+            cur.execute('SELECT pg_try_advisory_lock(%s);', [LOCK_KEY])
+            row = cur.fetchone()
+            locked = bool(row and row[0])
+        if not locked:
+            print("❌ Another import appears to be running. Aborting to avoid deadlocks.")
+            return 4
+        print("[PH POSTGRES LOADER] Acquired advisory lock for import")
+    except Exception as e:
+        print(f"[PH POSTGRES LOADER] Warning: could not acquire advisory lock: {e}")
+        # Proceeding without advisory lock is risky but allowed in fallback
     if not clear_database_noninteractive():
         return 2
-    ok = run_population(num)
+    try:
+        ok = run_population(num)
+    finally:
+        # Release advisory lock if held
+        try:
+            if locked:
+                with connection.cursor() as cur:
+                    cur.execute('SELECT pg_advisory_unlock(%s);', [LOCK_KEY])
+                print("[PH POSTGRES LOADER] Released advisory lock")
+        except Exception:
+            pass
     if ok:
         write_completion_flag()
         print("[PH POSTGRES LOADER] Population complete")
