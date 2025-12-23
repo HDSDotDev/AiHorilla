@@ -367,6 +367,20 @@ def load_demo_database(request):
                         status_file = project_root / '.railway_import_running'
                         status_file.write_text(f"pid={p.pid}\nout={out_path}\nerr={err_path}\nstarted={import_time}\n")
 
+                        # Also write a JSON status file for easier automated inspection
+                        try:
+                            status_json = project_root / '.railway_import_status.json'
+                            status_content = {
+                                'pid': p.pid,
+                                'out': str(out_path),
+                                'err': str(err_path),
+                                'started': import_time,
+                                'state': 'started',
+                            }
+                            status_json.write_text(json.dumps(status_content))
+                        except Exception:
+                            logger.exception('Failed to write JSON status file for demo import')
+
                         # Wait briefly to detect immediate failures (common in misconfigured envs).
                         time_waited = 0.0
                         poll_interval = 0.5
@@ -394,7 +408,10 @@ def load_demo_database(request):
                             return redirect(home)
 
                         logger.info(f"Started demo import (pid={p.pid}), logs: {out_path}")
-                        messages.success(request, _("Demo import started in background. It may take several minutes. Check server logs for progress."))
+                        try:
+                            messages.success(request, _(f"Demo import started (pid={p.pid}). Status file: {status_json}"))
+                        except Exception:
+                            messages.success(request, _("Demo import started in background. It may take several minutes. Check server logs for progress."))
                         return redirect(home)
                     except FileNotFoundError as e:
                         logger.error(f"Demo loader script not found: {e}")
