@@ -267,6 +267,7 @@ class PhilippinesComprehensiveDemo:
                 'employee_first_name': 'Admin',
                 'employee_last_name': 'User',
                 'email': 'admin@bizbloqs.ph',
+                'phone': '+63-999-999-9999',  # Required field
                 'badge_id': 'ADMIN-001',
                 'is_active': True,
             }
