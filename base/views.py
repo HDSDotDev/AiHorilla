@@ -317,7 +317,10 @@ def load_demo_database(request):
                         env = os.environ.copy()
                         env['DEMO_DATA_SEED'] = os.environ.get('DEMO_DATA_SEED', '123456')
                     
+                    # Debug: show chosen loader path in stdout so container logs capture it
+                    print(f"[DEMO LOADER DEBUG] chosen loader_script={loader_script}", flush=True)
                     if not loader_script.exists():
+                        print(f"[DEMO LOADER DEBUG] loader script missing: {loader_script}", flush=True)
                         raise FileNotFoundError(f"Demo loader script not found: {loader_script}")
 
                     # Start the loader script as a background process so the HTTP request
@@ -334,6 +337,7 @@ def load_demo_database(request):
                         err_fh = open(err_path, 'w', encoding='utf-8')
 
                         logger.info(f"Launching demo loader: script={loader_script} python={python_cmd} exists={loader_script.exists()} cwd={project_root}")
+                        print(f"[DEMO LOADER DEBUG] launching subprocess: {python_cmd} {loader_script}", flush=True)
 
                         # Start subprocess detached from request; do not wait long.
                         try:
@@ -352,7 +356,9 @@ def load_demo_database(request):
                                 err_fh.close()
                             except Exception:
                                 pass
-                            logger.error(f"Failed to start demo loader subprocess: {e}")
+                            err_msg = f"Failed to start demo loader subprocess: {e}"
+                            logger.error(err_msg)
+                            print(f"[DEMO LOADER DEBUG] {err_msg}", flush=True)
                             messages.error(request, _("Demo import failed to start (subprocess error). Check server logs."))
                             return redirect(home)
 
@@ -403,11 +409,15 @@ def load_demo_database(request):
                                     tail = ''
                             except Exception:
                                 tail = ''
-                            logger.error(f"Demo import process exited immediately (pid={p.pid}). Stderr:\n{tail}")
+                            err_msg = f"Demo import process exited immediately (pid={p.pid}). Stderr:\n{tail}"
+                            logger.error(err_msg)
+                            print(f"[DEMO LOADER DEBUG] {err_msg}", flush=True)
                             messages.error(request, _("Demo import failed to start. Check server logs for details."))
                             return redirect(home)
 
-                        logger.info(f"Started demo import (pid={p.pid}), logs: {out_path}")
+                        started_msg = f"Started demo import (pid={p.pid}), logs: {out_path}, status: {status_json}"
+                        logger.info(started_msg)
+                        print(f"[DEMO LOADER DEBUG] {started_msg}", flush=True)
                         try:
                             messages.success(request, _(f"Demo import started (pid={p.pid}). Status file: {status_json}"))
                         except Exception:
