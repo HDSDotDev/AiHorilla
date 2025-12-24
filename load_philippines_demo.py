@@ -1170,6 +1170,13 @@ class PhilippinesComprehensiveDemo:
         print(f"   3. Check payroll and payslips")
         print(f"   4. View Philippines-specific features")
         
+        # Debug: Print all users created
+        from django.contrib.auth.models import User
+        users = User.objects.all().values_list('username', 'is_superuser', 'is_staff')
+        print(f"\n[DEBUG - ALL USERS CREATED]")
+        for username, is_super, is_staff in users:
+            print(f"   {username} (super:{is_super}, staff:{is_staff})")
+        
         print("\n" + "=" * 80 + "\n")
     
     def run(self):
