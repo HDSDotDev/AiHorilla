@@ -268,6 +268,8 @@ def initialize_database_condition():
             # If flag doesn't exist, always show init UI to allow reloading
             if not flag.exists():
                 return True
+            # For debugging, always show init UI
+            return True
         except Exception:
             pass
 
