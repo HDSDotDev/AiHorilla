@@ -265,6 +265,9 @@ def initialize_database_condition():
             flag = Path(settings.BASE_DIR) / '.railway_import_complete'
             if flag.exists() and init_database:
                 return True
+            # If flag doesn't exist, always show init UI to allow reloading
+            if not flag.exists():
+                return True
         except Exception:
             pass
 
