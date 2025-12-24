@@ -454,7 +454,7 @@ class GeneratePayslipForm(HorillaForm):
         # help_text="Enter +-something if you want to generate payslips by batches",
     )
     employee_id = HorillaMultiSelectField(
-        queryset=Employee.objects.none(),
+        queryset=Employee.objects.all(),  # Temporarily show all employees
         widget=HorillaMultiSelectWidget(
             filter_route_name="employee-widget-filter",
             filter_class=EmployeeFilter,
