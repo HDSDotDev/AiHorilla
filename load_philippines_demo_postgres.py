@@ -176,6 +176,7 @@ def main():
             print("❌ Another import appears to be running. Aborting to avoid deadlocks.")
             return 4
         print("[PH POSTGRES LOADER] Acquired advisory lock for import")
+        print("[PH POSTGRES LOADER] Starting database operations...")
     except Exception as e:
         print(f"[PH POSTGRES LOADER] Warning: could not acquire advisory lock: {e}")
         # Proceeding without advisory lock is risky but allowed in fallback
