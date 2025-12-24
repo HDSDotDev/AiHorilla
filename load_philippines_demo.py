@@ -255,9 +255,9 @@ class PhilippinesComprehensiveDemo:
                 'last_name': 'User'
             }
         )
-        if not admin_user.has_usable_password():
-            admin_user.set_password('admin')
-            admin_user.save()
+        # Always set password for admin user
+        admin_user.set_password('admin')
+        admin_user.save()
         
         # Create Employee record for admin user (required to hide demo data button after load)
         from employee.models import Employee
